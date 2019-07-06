@@ -1,2 +1,2 @@
-# ESG_Epoxy_Automoation
-ESG Epoxy Systems Automation Controller
+# ESG_Automoation
+ESG Systems Automation Library
