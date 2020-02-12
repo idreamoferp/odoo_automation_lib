@@ -10,3 +10,8 @@ class Machine(object):
         self.asset_id = asset_id
         self.equipment_id = self.api.env['maintenance.equipment'].browse(asset_id)
         pass
+    
+    def get_blocking_status(self):
+        return False
+        
+    
