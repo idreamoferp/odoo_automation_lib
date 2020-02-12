@@ -16,20 +16,29 @@ class Machine(machine.Machine):
         
         self.run_status = False
         self.e_stop_status = False
-        self.indicator_start_loop = threading.Thread(target=self.indicator_start_loop)
+        self.busy = False
+        self.warn = False
+        self.indicator_start_loop = threading.Thread(target=self.indicator_start_loop, daemon=True)
         self.indicator_start_loop.start()
-        self.indicator_e_stop_loop = threading.Thread(target=self.indicator_e_stop_loop)
+        self.indicator_e_stop_loop = threading.Thread(target=self.indicator_e_stop_loop, daemon=True)
         self.indicator_e_stop_loop.start()
+        self.indicator_warn_loop = threading.Thread(target=self.indicator_warn_loop, daemon=True)
+        self.indicator_warn_loop.start()
         return 
     
     #Button inputs
     def button_start(self):
+        #if e-stop engaged, do not enter start state.
         if self.e_stop_status:
             return False
         self.run_status = True
         return True
     
     def button_stop(self):
+        #if the machine is busy, wait, then stop.
+        while self.busy:
+            time.sleep(0.5)
+            
         self.run_status = False
         return True
     
@@ -60,6 +69,18 @@ class Machine(machine.Machine):
         #to be inherited by machine specific code
         pass
     
+    def indicator_warn_loop(self):
+        while True:
+            if self.warn:
+                self.indicator_warn(True)
+            else:
+                self.indicator_warn(False)
+            time.sleep(1.0)    
+                
+    def indicator_warn(self, value):
+        #to be inherited by machine specific code
+        pass
+    
     def indicator_e_stop_loop(self):
         #main loop 
         while True:
@@ -74,7 +95,16 @@ class Machine(machine.Machine):
         pass
             
     #machine functions
-
+    def get_blocking_status(self):
+        #pull equipment blocking state
+        result = super(Machine, self).get_blocking_status()
+        if not result:
+            
+            #if equipment not blocked, check work center blocking state
+            if self.workcenter_id.working_state == 'blocked':
+                result = True
+        return result
+    
 if __name__ == "__main__":
     server = "esg-beta.idreamoferp.com"
     port = 8012
@@ -91,4 +121,5 @@ if __name__ == "__main__":
         
     
     me = Machine(api=odoo, asset_id=5)
+    me.get_blocking_status()
     pass
