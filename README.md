@@ -1,2 +1,2 @@
-# ESG_Automoation
-ESG Systems Automation Library
+# ODOO Automoation
+ODOO Automation Library
