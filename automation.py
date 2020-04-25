@@ -4,8 +4,8 @@ import logging, odoorpc, threading, time
 #setup logger
 _logger = logging.getLogger("Automation")
 
-indicator_on_time = 2.0
-indicator_off_time = 3.0
+indicator_on_time = 1.0
+indicator_off_time = 0.50
 
 class Machine(machine.Machine):
     #this class is for the manufacturing automation machine
@@ -56,14 +56,18 @@ class Machine(machine.Machine):
     def indicator_start_loop(self):
         #main loop 
         while True:
-            if self.run_status:
-                self.indicator_start(True)
-                time.sleep(1)
+            if not self.e_stop_status:
+                if self.run_status:
+                    self.indicator_start(True)
+                    time.sleep(.5)
+                else:
+                    self.indicator_start(False)
+                    time.sleep(indicator_off_time)
+                    self.indicator_start(True)
+                    time.sleep(indicator_on_time)
             else:
                 self.indicator_start(False)
-                time.sleep(indicator_off_time)
-                self.indicator_start(True)
-                time.sleep(indicator_on_time)
+                time.sleep(.5)
                 
     def indicator_start(self, value):
         #to be inherited by machine specific code
@@ -88,7 +92,7 @@ class Machine(machine.Machine):
                 self.indicator_e_stop(True)
             else:
                 self.indicator_e_stop(False)
-            time.sleep(1)
+            time.sleep(.75)
                 
     def indicator_e_stop(self, value):
         #to be inherited by machine specific code
