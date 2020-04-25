@@ -108,22 +108,3 @@ class Machine(machine.Machine):
             if self.workcenter_id.working_state == 'blocked':
                 result = True
         return result
-    
-if __name__ == "__main__":
-    server = "esg-beta.idreamoferp.com"
-    port = 8012
-    database = "ESG_Beta_1-0"
-    user_id = "justin.mangini@esg.global"
-    password = "ESGmaint0719"
-    #create instance of odooRPC clinet
-    odoo = odoorpc.ODOO(server, port=port)
-    
-    try:
-        odoo.login(database, user_id, password)
-    except Exception as e:
-        _logger.error("Error logging in to odoo server",e)
-        
-    
-    me = Machine(api=odoo, asset_id=5)
-    me.get_blocking_status()
-    pass
