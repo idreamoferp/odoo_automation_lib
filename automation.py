@@ -26,41 +26,49 @@ class Machine(machine.Machine):
         self.indicator_warn_thread.start()
         self.main_machine_thread = threading.Thread(target=self.main_machine_loop, daemon=True)
         self.main_machine_thread.start()
+        _logger.info("Machine INIT Compleete.")
         return 
     
     #Button inputs
     def button_start(self):
-        #if e-stop engaged, do not enter start state.
-        if self.e_stop_status:
-            return False
-        self.run_status = True
-        _logger.info("Machine has entered the RUN state.")
+        if not self.run_status:
+            #if e-stop engaged, do not enter start state.
+            if self.e_stop_status:
+                return False
+            self.run_status = True
+            _logger.info("Machine has entered the RUN state.")
         return True
     
     def button_stop(self):
-        #if the machine is busy, wait, then stop.
-        while self.busy:
-            time.sleep(0.5)
-            
-        self.run_status = False
-        _logger.info("Machine has entered the STOPPED state.")
-        return True
+        if self.run_status:
+            #if the machine is busy, wait, then stop.
+            while self.busy:
+                time.sleep(0.5)
+                
+            self.run_status = False
+            _logger.info("Machine has entered the STOPPED state.")
+            return True
     
     def e_stop(self):
-        self.run_status = False
-        self.e_stop_status = True
-        
-        #abruptly shutdown the main loop thread.
-        #in the main machine config, setup all the i/o to render safe the machine.
-        #self.main_machine_thread.stop()
+        #this will loop constantly while the e-stop is depressed.
+        if not self.e_stop_status:
+            self.run_status = False
+            self.e_stop_status = True
+            
+            #abruptly shutdown the main loop thread.
+            #in the main machine config, setup all the i/o to render safe the machine.
+            #self.main_machine_thread.stop()
+            _logger.warn("Machine has entered the E-STOP state.")
         pass
     
     def e_stop_reset(self):
-        self.run_status = False
-        self.e_stop_status = False
-        
-        #re-boot the main loop thread
-        #self.main_machine_thread.start()
+        if self.e_stop_status:
+            self.run_status = False
+            self.e_stop_status = False
+            
+            #re-boot the main loop thread
+            #self.main_machine_thread.start()
+            _logger.warn("Machine has reset the E-STOP state.")
         pass
     
     #indicator outputs
