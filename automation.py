@@ -18,12 +18,14 @@ class Machine(machine.Machine):
         self.e_stop_status = False
         self.busy = False
         self.warn = False
-        self.indicator_start_loop = threading.Thread(target=self.indicator_start_loop, daemon=True)
-        self.indicator_start_loop.start()
-        self.indicator_e_stop_loop = threading.Thread(target=self.indicator_e_stop_loop, daemon=True)
-        self.indicator_e_stop_loop.start()
-        self.indicator_warn_loop = threading.Thread(target=self.indicator_warn_loop, daemon=True)
-        self.indicator_warn_loop.start()
+        self.indicator_start_thread = threading.Thread(target=self.indicator_start_loop, daemon=True)
+        self.indicator_start_thread.start()
+        self.indicator_e_stop_thread = threading.Thread(target=self.indicator_e_stop_loop, daemon=True)
+        self.indicator_e_stop_thread.start()
+        self.indicator_warn_thread = threading.Thread(target=self.indicator_warn_loop, daemon=True)
+        self.indicator_warn_thread.start()
+        self.main_machine_thread = threading.Thread(target=self.main_machine_loop, daemon=True)
+        self.main_machine_thread.start()
         return 
     
     #Button inputs
@@ -32,6 +34,7 @@ class Machine(machine.Machine):
         if self.e_stop_status:
             return False
         self.run_status = True
+        _logger.info("Machine has entered the RUN state.")
         return True
     
     def button_stop(self):
@@ -40,16 +43,24 @@ class Machine(machine.Machine):
             time.sleep(0.5)
             
         self.run_status = False
+        _logger.info("Machine has entered the STOPPED state.")
         return True
     
     def e_stop(self):
         self.run_status = False
         self.e_stop_status = True
+        
+        #abruptly shutdown the main loop thread.
+        #in the main machine config, setup all the i/o to render safe the machine.
+        #self.main_machine_thread.stop()
         pass
     
     def e_stop_reset(self):
         self.run_status = False
         self.e_stop_status = False
+        
+        #re-boot the main loop thread
+        #self.main_machine_thread.start()
         pass
     
     #indicator outputs
@@ -103,8 +114,86 @@ class Machine(machine.Machine):
         #pull equipment blocking state
         result = super(Machine, self).get_blocking_status()
         if not result:
-            
             #if equipment not blocked, check work center blocking state
             if self.workcenter_id.working_state == 'blocked':
                 result = True
         return result
+        
+    def main_machine_loop(self):
+        #this will be the loop the machine takes for each manufacturing cycle.
+        while True:
+            while self.run_status:
+                #preflight checks
+                if not self.preflight_checks():
+                    time.sleep(1)
+                    self.warn=True
+                    break
+                
+                #reset any warning indicator
+                self.warn = False
+                
+                #monitor and wait for the ingress trigger.
+                if not self.ingress_trigger():
+                    #no product is waiting for this machine.
+                    self.busy = False
+                    
+                    #throttle checking of the ingress trigger
+                    time.sleep(1)
+                    #exit this loop and start again.
+                    break
+                
+                #we have a product to work on, set the busy flag.
+                _logger.info("Machines ingress has been triggered.")
+                self.busy = True
+                
+                #check the blocking status of the machine and workcenter in odoo.
+                if self.get_blocking_status():
+                    #throttle retries a bit
+                    time.sleep(1)
+                    #exit this loop
+                    
+                    _logger.warning("Machine or Workcenter is blocking this machine from running")
+                    break
+                
+                #all is well, we can continue to bring in the product to the machine
+                _logger.info("Machine is ready to process ingress")
+                
+                #prcess ingress, bring the product into the machine and prepare it for processing.
+                if not self.process_ingress():
+                    #there was a problem processing the ingress, set the run status to False and warning to True
+                    self.run_status = False
+                    self.warn = True
+                    _logger.warning("Failed to process ingress.")
+                    break
+                    
+                #ingress has been processed sucessfully, continue to process the product.
+                _logger.info("Machine has processed ingress")
+                
+                
+                _logger.info("Machine is ready to process egress")
+                if not self.process_egress():
+                    #there was a problem processing the egress, set the run status to False and warning to True
+                    self.run_status = False
+                    self.warn = True
+                    _logger.warning("Failed to process egress.")
+                    break
+                _logger.info("Machine has processed egress")
+                
+    def preflight_checks(self):
+        #to be inherited by the main machine config and returns True when the machine is ready to accept a product.
+        
+        #check that the machine in front of this machine is capible of accepting more product
+        return False 
+                
+    def ingress_trigger(self):
+        #to be inherited by the main machine config and returns True when the product has arrived at the ingress gate.
+        return False
+    
+    def process_ingress(self):
+        #to be inherited by the main machine config and returns True when the product has processed through ingress and is ready for processing.
+        return False
+        
+    def process_egress(self):
+        #to be inherited by the main machine config and returns True when the product has processed through egress and is clear of this machine.
+        return False
+        

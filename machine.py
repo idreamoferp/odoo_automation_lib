@@ -12,6 +12,7 @@ class Machine(object):
         pass
     
     def get_blocking_status(self):
+        #not yet implemented in odoo, return false to indicate the machine is not blocked from running
         return False
         
     
