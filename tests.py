@@ -55,7 +55,7 @@ class TestMachine(automation.Machine):
         self.button_input_thread = threading.Thread(target=self.button_input_loop, daemon=True)
         self.button_input_thread.start()
         
-        
+        _logger.info("Machine INIT Compleete.")
         return
         
     def button_input_loop(self):
