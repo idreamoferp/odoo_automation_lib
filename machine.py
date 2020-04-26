@@ -9,7 +9,8 @@ class Machine(object):
         self.api = api
         self.asset_id = asset_id
         self.equipment_id = self.api.env['maintenance.equipment'].browse(asset_id)
-        pass
+        _logger.info("Machine INIT Compleete.")
+        return
     
     def get_blocking_status(self):
         #not yet implemented in odoo, return false to indicate the machine is not blocked from running
