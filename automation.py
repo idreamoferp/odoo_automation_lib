@@ -12,7 +12,16 @@ class Machine(machine.Machine):
     #inherits [machine] for equpiment level functions and calibrations
     def __init__(self, api, asset_id):
         super(Machine, self).__init__(api, asset_id)
-        self.workcenter_id = self.equipment_id.workcenter_id
+        
+        #odoo route node
+        self.route_node_id = None
+        self.route_node_working_lane = None
+        self.route_node_bypass_lane = None
+        
+        self.route_node_thread = threading.Thread(target=self.route_node_updater, daemon=True)
+        self.route_node_thread.start()
+        
+        self.route_destination_cashe = {}
         
         self.run_status = False
         self.e_stop_status = False
@@ -28,6 +37,28 @@ class Machine(machine.Machine):
         self.main_machine_thread.start()
         _logger.info("Machine INIT Compleete.")
         return 
+    
+    #odoo interface
+    def route_node_updater(self):
+        obj_route_node = self.api.env['product.carrier.route.node']
+        obj_route_node_lane = self.api.env["product.carrier.route.lane"]
+        while True:
+            
+            
+            search_domain = [('equipment_id',"=", self.equipment_id.id)]
+            route_node_id = obj_route_node.browse(obj_route_node.search(search_domain, limit=1))[0]
+            
+            # if self.route_node_id <> route_node_id:
+            #     #the node has changed, wipe out cache
+            
+            #set the machines Route Node    
+            self.route_node_id = route_node_id
+            
+            self.route_node_working_lane = obj_route_node_lane.browse(obj_route_node_lane.search([("node_id", "=", self.route_node_id.id), ("type", "=", "work")]))
+            self.route_node_bypass_lane = obj_route_node_lane.browse(obj_route_node_lane.search([("node_id", "=", self.route_node_id.id), ("type", "=", "bypass")]))
+            #sleep and re-casch the route node id, monitor the db for changes.
+            time.sleep(60*60)
+            
     
     #Button inputs
     def button_start(self):
