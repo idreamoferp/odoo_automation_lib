@@ -1,5 +1,5 @@
 import automation
-import logging, odoorpc, threading, time
+import logging, odoorpc, threading, time, sys, argparse
 import digitalio, board #blinka libs
 
 #setup logger
@@ -182,8 +182,13 @@ if __name__ == "__main__":
     #asset id from odoo's maintenance.equipment model space
     odoo_equipment_asset_id = 11519
     
+    
+    parser = argparse.ArgumentParser(description='')
+    parser.add_argument('--equipment-id', type=str, help='ODOO Maintence Equipment ID')
+    args = parser.parse_args()
+    
     #create instance of this test machine, and start its engine
-    test_machine = TestMachine(api=odoo, asset_id=odoo_equipment_asset_id)
+    test_machine = TestMachine(api=odoo, asset_id=args.equipment_id)
     
     while True:
         time.sleep(1000)
