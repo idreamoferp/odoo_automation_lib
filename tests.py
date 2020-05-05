@@ -3,7 +3,7 @@ import logging, odoorpc, threading, time, sys, argparse
 import digitalio, board #blinka libs
 
 #setup logger
-logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
+logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.DEBUG)
 _logger = logging.getLogger("Test Machine")
 
 class TestMachine(automation.Machine):
@@ -179,12 +179,8 @@ if __name__ == "__main__":
     except Exception as e:
         _logger.error("Error logging in to odoo server",e)
     
-    #asset id from odoo's maintenance.equipment model space
-    odoo_equipment_asset_id = 11519
-    
-    
     parser = argparse.ArgumentParser(description='')
-    parser.add_argument('--equipment-id', type=str, help='ODOO Maintence Equipment ID')
+    parser.add_argument('--equipment-id', type=int, help='ODOO Maintence Equipment ID')
     args = parser.parse_args()
     
     #create instance of this test machine, and start its engine
