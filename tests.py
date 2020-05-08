@@ -165,7 +165,7 @@ if __name__ == "__main__":
     
     #odoo api settings, TODO: move these to a server_config file
     server = "esg-beta.idreamoferp.com"
-    port = 8012
+    port = 80
     database = "ESG_Beta_1-0"
     user_id = "justin.mangini@esg.global"
     password = "ESGmaint0719"
@@ -178,8 +178,8 @@ if __name__ == "__main__":
         odoo.login(database, user_id, password)
     except Exception as e:
         _logger.error("Error logging in to odoo server",e)
-        parser = argparse.ArgumentParser(description='')
-
+    
+    parser = argparse.ArgumentParser(description='')
     parser.add_argument('--equipment-id', type=int, help='ODOO Maintence Equipment ID')
     args = parser.parse_args()
     
