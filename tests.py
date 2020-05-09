@@ -167,8 +167,8 @@ if __name__ == "__main__":
     server = "esg-beta.idreamoferp.com"
     port = 80
     database = "ESG_Beta_1-0"
-    user_id = "justin.mangini@esg.global"
-    password = "ESGmaint0719"
+    user_id = "equipment_072"
+    password = "1q2w3e4r"
     
     #create instance of odooRPC clinet with these settings
     odoo = odoorpc.ODOO(server, port=port)
