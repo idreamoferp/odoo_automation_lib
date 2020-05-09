@@ -191,6 +191,7 @@ class Machine(machine.Machine):
     def main_machine_loop(self):
         #this will be the loop the machine takes for each manufacturing cycle.
         while True:
+            #this part of the loop will run only when the machine run_status = True
             while self.run_status:
                 #preflight checks
                 if not self.preflight_checks():
