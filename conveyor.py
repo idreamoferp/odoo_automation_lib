@@ -34,8 +34,8 @@ class Diverter(object):
         self.busy = False
         
         #dict of lanes this diverter is connected to for status polling
-        
         self.lanes = {}
+        
         #this dict contains the methods to call for each lane to destination lanes.
         #the key to the dict is the current lane id, the value is a dict of destination keys and value methods to call.
         #{0:{'work': method_to_call,},}
