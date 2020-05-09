@@ -17,16 +17,21 @@ class Machine(machine.Machine):
         self.route_node_id = None
         self.route_node_working_lane = None
         self.route_node_bypass_lane = None
+        self.route_destination_cashe = {}
+        self.route_node_working_queue = None
         
         self.route_node_thread = threading.Thread(target=self.route_node_updater, daemon=True)
         self.route_node_thread.start()
+        self.route_queue_thread = threading.Thread(target=self.update_queues_thread, daemon=True)
+        self.route_queue_thread.start()
         
-        self.route_destination_cashe = {}
-        
+        #internal vars
         self.run_status = False
         self.e_stop_status = False
         self.busy = False
         self.warn = False
+        
+        #indicator theads
         self.indicator_start_thread = threading.Thread(target=self.indicator_start_loop, daemon=True)
         self.indicator_start_thread.start()
         self.indicator_e_stop_thread = threading.Thread(target=self.indicator_e_stop_loop, daemon=True)
@@ -59,6 +64,27 @@ class Machine(machine.Machine):
             #sleep and re-casch the route node id, monitor the db for changes.
             time.sleep(60*60)
             
+    def update_queues_thread(self):
+        time.sleep(10)
+        #loop forever
+        while True:
+            #refresh the queues only when running
+            while self.run_status:
+                self.update_working_lane_queue()
+                
+                #pause time between queue refreshes
+                time.sleep(5)
+                
+            #pause time between run_status=False refreshes
+            time.sleep(1)
+        
+    def update_working_lane_queue(self):
+        #fetch the carrier queue from the database
+        obj_carrier_history = self.api.env["product.carrier.history"]
+        search_doamin = [("route_node_lane_id","=",self.route_node_working_lane.id)]
+        carrier_history_ids = obj_carrier_history.search(search_doamin)
+        self.route_node_working_queue = obj_carrier_history.browse(carrier_history_ids)
+        pass
     
     #Button inputs
     def button_start(self):
@@ -67,6 +93,10 @@ class Machine(machine.Machine):
             if self.e_stop_status:
                 return False
             self.run_status = True
+            
+            #update the working queue
+            self.update_working_lane_queue()
+            
             _logger.info("Machine has entered the RUN state.")
         return True
     
@@ -152,10 +182,10 @@ class Machine(machine.Machine):
     def get_blocking_status(self):
         #pull equipment blocking state
         result = super(Machine, self).get_blocking_status()
-        if not result:
-            #if equipment not blocked, check work center blocking state
-            if self.workcenter_id.working_state == 'blocked':
-                result = True
+        # if not result:
+        #     #if equipment not blocked, check work center blocking state
+        #     if self.workcenter_id.working_state == 'blocked':
+        #         result = True
         return result
         
     def main_machine_loop(self):
@@ -217,6 +247,7 @@ class Machine(machine.Machine):
                     _logger.warning("Failed to process egress.")
                     break
                 _logger.info("Machine has processed egress")
+            time.sleep(1)
                 
     def preflight_checks(self):
         #to be inherited by the main machine config and returns True when the machine is ready to accept a product.
@@ -235,4 +266,3 @@ class Machine(machine.Machine):
     def process_egress(self):
         #to be inherited by the main machine config and returns True when the product has processed through egress and is clear of this machine.
         return False
-        
