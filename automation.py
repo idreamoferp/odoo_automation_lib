@@ -48,19 +48,21 @@ class Machine(machine.Machine):
         obj_route_node = self.api.env['product.carrier.route.node']
         obj_route_node_lane = self.api.env["product.carrier.route.lane"]
         while True:
+            try:
+                search_domain = [('equipment_id',"=", self.equipment_id.id)]
+                route_node_id = obj_route_node.browse(obj_route_node.search(search_domain, limit=1))[0]
             
-            
-            search_domain = [('equipment_id',"=", self.equipment_id.id)]
-            route_node_id = obj_route_node.browse(obj_route_node.search(search_domain, limit=1))[0]
-            
-            # if self.route_node_id <> route_node_id:
-            #     #the node has changed, wipe out cache
-            
-            #set the machines Route Node    
-            self.route_node_id = route_node_id
-            
-            self.route_node_working_lane = obj_route_node_lane.browse(obj_route_node_lane.search([("node_id", "=", self.route_node_id.id), ("type", "=", "work")]))
-            self.route_node_bypass_lane = obj_route_node_lane.browse(obj_route_node_lane.search([("node_id", "=", self.route_node_id.id), ("type", "=", "bypass")]))
+                # if self.route_node_id <> route_node_id:
+                #     #the node has changed, wipe out cache
+                
+                #set the machines Route Node    
+                self.route_node_id = route_node_id
+                
+                self.route_node_working_lane = obj_route_node_lane.browse(obj_route_node_lane.search([("node_id", "=", self.route_node_id.id), ("type", "=", "work")]))
+                self.route_node_bypass_lane = obj_route_node_lane.browse(obj_route_node_lane.search([("node_id", "=", self.route_node_id.id), ("type", "=", "bypass")]))
+                
+            except Exception as e:
+                _logger.error(e)
             #sleep and re-casch the route node id, monitor the db for changes.
             time.sleep(60*60)
             
@@ -69,8 +71,12 @@ class Machine(machine.Machine):
         #loop forever
         while True:
             #refresh the queues only when running
-            while self.run_status:
-                self.update_working_lane_queue()
+            while self.run_status and not self.busy:
+                try:
+                    self.update_working_lane_queue()
+                except Exception as e:
+                    _logger.error(e)
+                
                 
                 #pause time between queue refreshes
                 time.sleep(5)
@@ -199,7 +205,7 @@ class Machine(machine.Machine):
                     self.warn=True
                     break
                 
-                #reset any warning indicator
+                #reset any preflight warning indicators
                 self.warn = False
                 
                 #monitor and wait for the ingress trigger.
