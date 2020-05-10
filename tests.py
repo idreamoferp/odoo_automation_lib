@@ -1,9 +1,9 @@
 import automation
-import logging, odoorpc, threading, time, sys, argparse
+import logging, odoorpc, threading, time, argparse
 import digitalio, board #blinka libs
 
 #setup logger
-logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.DEBUG)
+logging.basicConfig(format="%(asctime)s %(levelname)s %(name)s - %(message)s",datefmt='%m/%d/%Y %I:%M:%S %p',level=logging.DEBUG)
 _logger = logging.getLogger("Test Machine")
 
 class TestMachine(automation.Machine):
