@@ -205,7 +205,7 @@ class Machine(machine.Machine):
                     self.warn=True
                     break
                 
-                #reset any preflight warning indicators
+                #reset any warning indicator
                 self.warn = False
                 
                 #monitor and wait for the ingress trigger.
@@ -254,6 +254,8 @@ class Machine(machine.Machine):
                     _logger.warning("Failed to process egress.")
                     break
                 _logger.info("Machine has processed egress")
+            
+            #throttle cpu useage when run status is False
             time.sleep(1)
                 
     def preflight_checks(self):
