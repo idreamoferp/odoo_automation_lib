@@ -71,7 +71,7 @@ class Machine(machine.Machine):
         #loop forever
         while True:
             #refresh the queues only when running
-            while self.run_status and not self.busy:
+            while self.run_status and not self.busy and self.route_node_id:
                 try:
                     self.update_working_lane_queue()
                 except Exception as e:
@@ -205,7 +205,7 @@ class Machine(machine.Machine):
                     self.warn=True
                     break
                 
-                #reset any warning indicator
+                #reset any preflight warning indicators
                 self.warn = False
                 
                 #monitor and wait for the ingress trigger.
@@ -254,8 +254,6 @@ class Machine(machine.Machine):
                     _logger.warning("Failed to process egress.")
                     break
                 _logger.info("Machine has processed egress")
-            
-            #throttle cpu useage when run status is False
             time.sleep(1)
                 
     def preflight_checks(self):
