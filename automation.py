@@ -71,7 +71,7 @@ class Machine(machine.Machine):
         #loop forever
         while True:
             #refresh the queues only when running
-            while self.run_status and not self.busy:
+            while self.run_status and not self.busy and self.route_node_id:
                 try:
                     self.update_working_lane_queue()
                 except Exception as e:
