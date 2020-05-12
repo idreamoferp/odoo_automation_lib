@@ -18,7 +18,8 @@ class Machine(machine.Machine):
         self.route_node_working_lane = None
         self.route_node_bypass_lane = None
         self.route_destination_cashe = {}
-        self.route_node_working_queue = None
+        self.route_node_working_queue = []
+        self.carrier_history_cache = {}
         
         self.route_node_thread = threading.Thread(target=self.route_node_updater, daemon=True)
         self.route_node_thread.start()
@@ -85,23 +86,34 @@ class Machine(machine.Machine):
             time.sleep(1)
         
     def update_working_lane_queue(self):
-        #fetch the carrier queue from the database
+        _logger.info("Updateing carrier Queue")
+        
+        #fetch the carrier_ids queue from the database
         obj_carrier_history = self.api.env["product.carrier.history"]
         search_doamin = [("route_node_lane_id","=",self.route_node_working_lane.id)]
-        carrier_history_ids = obj_carrier_history.search(search_doamin)
-        self.route_node_working_queue = obj_carrier_history.browse(carrier_history_ids)
+        self.route_node_working_queue = obj_carrier_history.search(search_doamin)
+        
+        #cycle through all the carriers in the database, verify them in the queue
+        for carrier_history in self.route_node_working_queue:
+            if carrier_history not in self.carrier_history_cache:
+                #add this carrier to the queue cache.
+                self.carrier_history_cache[carrier_history] = Carrier(self.api, obj_carrier_history.browse(carrier_history))
         pass
     
     #Button inputs
     def button_start(self):
+        #if the run status is already True, skip these things.
         if not self.run_status:
-            #if e-stop engaged, do not enter start state.
-            if self.e_stop_status:
-                return False
-            self.run_status = True
             
+            if self.e_stop_status:
+                #the machine is in an e-stop status, cannot start.
+                return False
+                
             #update the working queue
             self.update_working_lane_queue()
+            
+            #set the run status to True to start the machine.
+            self.run_status = True
             
             _logger.info("Machine has entered the RUN state.")
         return True
@@ -273,3 +285,13 @@ class Machine(machine.Machine):
     def process_egress(self):
         #to be inherited by the main machine config and returns True when the product has processed through egress and is clear of this machine.
         return False
+        
+        
+        
+class Carrier(object):
+    def __init__(self, api, carrier_history_id):
+        self.api = api
+        self.carrier_history_id = carrier_history_id
+        
+        _logger.info("Added %s to the carrier queue" % (carrier_history_id.barcode))
+        pass
