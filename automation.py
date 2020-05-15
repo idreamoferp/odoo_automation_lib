@@ -61,7 +61,6 @@ class Machine(machine.Machine):
                 
                 self.route_node_working_lane = obj_route_node_lane.browse(obj_route_node_lane.search([("node_id", "=", self.route_node_id.id), ("type", "=", "work")]))
                 self.route_node_bypass_lane = obj_route_node_lane.browse(obj_route_node_lane.search([("node_id", "=", self.route_node_id.id), ("type", "=", "bypass")]))
-                
             except Exception as e:
                 _logger.error(e)
             #sleep and re-casch the route node id, monitor the db for changes.
@@ -285,7 +284,10 @@ class Machine(machine.Machine):
     def process_egress(self):
         #to be inherited by the main machine config and returns True when the product has processed through egress and is clear of this machine.
         return False
-        
+    
+    def quit(self):
+        _logger.info("Machine Shutdown.")
+        return super(machine, self).quit()    
         
         
 class Carrier(object):
@@ -293,5 +295,5 @@ class Carrier(object):
         self.api = api
         self.carrier_history_id = carrier_history_id
         
-        _logger.info("Added %s to the carrier queue" % (carrier_history_id.barcode))
+        _logger.info("Added %s " % (self.carrier_history_id.name))
         pass
