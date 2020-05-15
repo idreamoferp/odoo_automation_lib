@@ -14,17 +14,17 @@ class Machine(machine.Machine):
         super(Machine, self).__init__(api, asset_id)
         
         #odoo route node
-        self.route_node_id = None
-        self.route_node_working_lane = None
-        self.route_node_bypass_lane = None
+        self.route_node_id = False
+        self.route_node_working_lane = False
+        self.route_node_bypass_lane = False
         self.route_destination_cashe = {}
         self.route_node_working_queue = []
         self.carrier_history_cache = {}
         
-        self.route_node_thread = threading.Thread(target=self.route_node_updater, daemon=True)
+        self.route_node_thread = threading.Thread(target=self.update_route_node_loop, daemon=True)
         self.route_node_thread.start()
         self.route_queue_thread = threading.Thread(target=self.update_queues_thread, daemon=True)
-        self.route_queue_thread.start()
+        
         
         #internal vars
         self.run_status = False
@@ -44,27 +44,50 @@ class Machine(machine.Machine):
         _logger.info("Machine INIT Compleete.")
         return 
     
-    #odoo interface
-    def route_node_updater(self):
-        obj_route_node = self.api.env['product.carrier.route.node']
-        obj_route_node_lane = self.api.env["product.carrier.route.lane"]
+    #odoo carrer route methods
+    def update_route_node_loop(self):
+        search_domain = [('equipment_id',"=", self.equipment_id.id)]
+        
         while True:
             try:
-                search_domain = [('equipment_id',"=", self.equipment_id.id)]
-                route_node_id = obj_route_node.browse(obj_route_node.search(search_domain, limit=1))[0]
-            
-                # if self.route_node_id <> route_node_id:
-                #     #the node has changed, wipe out cache
+                #festch the route node assigned to this equipment from the database
+                route_node_id = self.api.env['product.carrier.route.node'].search(search_domain, limit=1)[0]
                 
-                #set the machines Route Node    
-                self.route_node_id = route_node_id
-                
-                self.route_node_working_lane = obj_route_node_lane.browse(obj_route_node_lane.search([("node_id", "=", self.route_node_id.id), ("type", "=", "work")]))
-                self.route_node_bypass_lane = obj_route_node_lane.browse(obj_route_node_lane.search([("node_id", "=", self.route_node_id.id), ("type", "=", "bypass")]))
+                if not self.route_node_id:
+                    #this is the first pass, set the route node up
+                    self.update_route_node(route_node_id)
+                    
+                if self.route_node_id.id != route_node_id:
+                    #the route node has changed in the database, re-setup the route node
+                    self.update_route_node(route_node_id)
             except Exception as e:
-                _logger.error(e)
+
+                _logger.error("There was an error fetching the route node %s" % (e))
+            
             #sleep and re-casch the route node id, monitor the db for changes.
             time.sleep(60*60)
+            
+    def update_route_node(self, route_node_id):
+        #the node has changed, wipe out cache
+        self.carrier_history_cache ={}
+        self.route_destination_cashe = {}
+        
+        #set the machines Route Node    
+        self.route_node_id = self.api.env['product.carrier.route.node'].browse(route_node_id)
+        
+        #setup the lanes on this route node
+        for lane in self.route_node_id.lane_ids:
+            #setup the working lane
+            if lane.type =="work" and not self.route_node_working_lane:
+                self.route_node_working_lane = lane
+                
+            #setup the bypass lane
+            if lane.type == "bypass" and not self.route_node_bypass_lane:
+                self.route_node_bypass_lane = lane
+        
+        #start the queue thread
+        self.route_queue_thread.start()
+        pass
             
     def update_queues_thread(self):
         time.sleep(10)
@@ -297,3 +320,4 @@ class Carrier(object):
         
         _logger.info("Added %s " % (self.carrier_history_id.name))
         pass
+    
