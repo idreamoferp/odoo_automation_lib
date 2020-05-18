@@ -14,17 +14,19 @@ class Machine(machine.Machine):
         super(Machine, self).__init__(api, asset_id)
         
         #odoo route node
-        self.route_node_id = None
-        self.route_node_working_lane = None
-        self.route_node_bypass_lane = None
-        self.route_destination_cashe = {}
-        self.route_node_working_queue = []
-        self.carrier_history_cache = {}
+        self.route_node_id = False
+        self.route_node_working_lane = False
+        self.route_node_bypass_lane = False
         
-        self.route_node_thread = threading.Thread(target=self.route_node_updater, daemon=True)
+        #route node lanes
+        self.route_node_working_queue = [] #this var contains the order the carriers are in the queue by history_id
+        self.route_node_bypass_queue = [] #this var contains the order the carriers are in the queue by history_id
+        self.route_node_thread = threading.Thread(target=self.update_route_node_loop, daemon=True)
         self.route_node_thread.start()
         self.route_queue_thread = threading.Thread(target=self.update_queues_thread, daemon=True)
-        self.route_queue_thread.start()
+        
+        self.carrier_history_cache = {} #this var contains the carrier history database objects that are in the queue
+        self.currernt_carrier = False
         
         #internal vars
         self.run_status = False
@@ -44,28 +46,50 @@ class Machine(machine.Machine):
         _logger.info("Machine INIT Compleete.")
         return 
     
-    #odoo interface
-    def route_node_updater(self):
-        obj_route_node = self.api.env['product.carrier.route.node']
-        obj_route_node_lane = self.api.env["product.carrier.route.lane"]
+    #odoo carrer route methods
+    def update_route_node_loop(self):
+        search_domain = [('equipment_id',"=", self.equipment_id.id)]
+        
         while True:
             try:
-                search_domain = [('equipment_id',"=", self.equipment_id.id)]
-                route_node_id = obj_route_node.browse(obj_route_node.search(search_domain, limit=1))[0]
-            
-                # if self.route_node_id <> route_node_id:
-                #     #the node has changed, wipe out cache
+                #festch the route node assigned to this equipment from the database
+                route_node_id = self.api.env['product.carrier.route.node'].search(search_domain, limit=1)[0]
                 
-                #set the machines Route Node    
-                self.route_node_id = route_node_id
-                
-                self.route_node_working_lane = obj_route_node_lane.browse(obj_route_node_lane.search([("node_id", "=", self.route_node_id.id), ("type", "=", "work")]))
-                self.route_node_bypass_lane = obj_route_node_lane.browse(obj_route_node_lane.search([("node_id", "=", self.route_node_id.id), ("type", "=", "bypass")]))
-                
+                if not self.route_node_id:
+                    #this is the first pass, set the route node up
+                    self.update_route_node(route_node_id)
+                    
+                if self.route_node_id.id != route_node_id:
+                    #the route node has changed in the database, re-setup the route node
+                    self.update_route_node(route_node_id)
             except Exception as e:
-                _logger.error(e)
+
+                _logger.error("There was an error fetching the route node %s" % (e))
+            
             #sleep and re-casch the route node id, monitor the db for changes.
             time.sleep(60*60)
+            
+    def update_route_node(self, route_node_id):
+        #the node has changed, wipe out cache
+        self.carrier_history_cache ={}
+        self.route_destination_cashe = {}
+        
+        #set the machines Route Node    
+        self.route_node_id = self.api.env['product.carrier.route.node'].browse(route_node_id)
+        
+        #setup the lanes on this route node
+        for lane in self.route_node_id.lane_ids:
+            #setup the working lane
+            if lane.type =="work" and not self.route_node_working_lane:
+                self.route_node_working_lane = lane
+                
+            #setup the bypass lane
+            if lane.type == "bypass" and not self.route_node_bypass_lane:
+                self.route_node_bypass_lane = lane
+        
+        #start the queue thread
+        self.route_queue_thread.start()
+        pass
             
     def update_queues_thread(self):
         time.sleep(10)
@@ -88,16 +112,25 @@ class Machine(machine.Machine):
     def update_working_lane_queue(self):
         _logger.info("Updateing carrier Queue")
         
+        self.route_node_working_queue = []
+        self.route_node_bypass_queue = []
+        
         #fetch the carrier_ids queue from the database
         obj_carrier_history = self.api.env["product.carrier.history"]
-        search_doamin = [("route_node_lane_id","=",self.route_node_working_lane.id)]
-        self.route_node_working_queue = obj_carrier_history.search(search_doamin)
+        search_doamin = [("route_node_lane_id.node_id","=",self.route_node_id.id)]
+        carriers = obj_carrier_history.browse(obj_carrier_history.search(search_doamin))
         
         #cycle through all the carriers in the database, verify them in the queue
-        for carrier_history in self.route_node_working_queue:
-            if carrier_history not in self.carrier_history_cache:
+        for carrier_history in carriers:
+            if carrier_history.route_node_lane_id.type == 'work':
+                self.route_node_working_queue.append(carrier_history.id)
+                
+            if carrier_history.route_node_lane_id.type == 'bypass':
+                self.route_node_bypass_queue.append(carrier_history.id)
+                
+            if carrier_history.id not in self.carrier_history_cache:
                 #add this carrier to the queue cache.
-                self.carrier_history_cache[carrier_history] = Carrier(self.api, obj_carrier_history.browse(carrier_history))
+                self.carrier_history_cache[carrier_history.id] = Carrier(self.api, carrier_history)
         pass
     
     #Button inputs
@@ -234,6 +267,11 @@ class Machine(machine.Machine):
                 _logger.info("Machines ingress has been triggered.")
                 self.busy = True
                 
+                #set the current carrier var
+                
+                self.currernt_carrier = self.carrier_history_cache[self.route_node_working_queue[0]]
+                _logger.info("Processing %s" % self.currernt_carrier.carrier_history_id.name)
+                
                 #check the blocking status of the machine and workcenter in odoo.
                 if self.get_blocking_status():
                     #throttle retries a bit
@@ -257,7 +295,7 @@ class Machine(machine.Machine):
                 #ingress has been processed sucessfully, continue to process the product.
                 _logger.info("Machine has processed ingress")
                 
-                
+                #process egress from the machine.
                 _logger.info("Machine is ready to process egress")
                 if not self.process_egress():
                     #there was a problem processing the egress, set the run status to False and warning to True
@@ -266,6 +304,14 @@ class Machine(machine.Machine):
                     _logger.warning("Failed to process egress.")
                     break
                 _logger.info("Machine has processed egress")
+                
+                
+                #process carrier compleeted in the database
+                self.currernt_carrier.carrier_history_id.mark_as_done()
+                #remove the carrier history from the cache
+                self.carrier_history_cache[self.currernt_carrier.id].pop()
+                #clear the current carrier var
+                self.currernt_carrier = False
             time.sleep(1)
                 
     def preflight_checks(self):
@@ -285,7 +331,10 @@ class Machine(machine.Machine):
     def process_egress(self):
         #to be inherited by the main machine config and returns True when the product has processed through egress and is clear of this machine.
         return False
-        
+    
+    def quit(self):
+        _logger.info("Machine Shutdown.")
+        return super(Machine, self).quit()    
         
         
 class Carrier(object):
@@ -293,5 +342,6 @@ class Carrier(object):
         self.api = api
         self.carrier_history_id = carrier_history_id
         
-        _logger.info("Added %s to the carrier queue" % (carrier_history_id.barcode))
+        _logger.info("Added %s" % (self.carrier_history_id.name))
         pass
+    
