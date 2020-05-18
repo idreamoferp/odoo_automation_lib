@@ -1,14 +1,17 @@
-import automation
+import automation, conveyor
 import logging, odoorpc, threading, time, argparse
 import digitalio, board #blinka libs
 
 #setup logger
-logging.basicConfig(format="%(asctime)s %(levelname)s %(name)s - %(message)s",datefmt='%m/%d/%Y %I:%M:%S %p',level=logging.DEBUG)
+logging.basicConfig(format="%(asctime)s %(levelname)s %(name)s - %(message)s",datefmt='%m/%d/%Y %I:%M:%S %p',level=logging.INFO)
 _logger = logging.getLogger("Test Machine")
 
 class TestMachine(automation.Machine):
     
     def __init__(self, api, asset_id):
+        #init conveyor for this machine
+        self.conveyor_1 = Conveyor_1()
+        
         #setup button pins
         self.button_start_input = digitalio.DigitalInOut(board.P9_12)
         self.button_start_input.direction = digitalio.Direction.INPUT
@@ -145,6 +148,11 @@ class TestMachine(automation.Machine):
         
     def process_egress(self):
         _logger.info("Machine opening egress gate, waiting to clear end stop trigger.")
+        
+        #configure diverter for the destination
+        destination_lane = self.currernt_carrier.carrier_history_id.route_node_lane_dest_id
+        self.conveyor_1.diverter.divert(self.route_node_working_lane, destination_lane)
+        
         #release carrier capture
         self.output_carrier_capture.value = True
         
@@ -157,9 +165,37 @@ class TestMachine(automation.Machine):
             #throttle wait peroid.
             time.sleep(0.5)
         
+        #free the diverter for other operations
+        self.conveyor_1.diverter.clear_divert()
         return True
         
-        
+class Conveyor_1(conveyor.Conveyor):
+    def __init__(self):
+        super(Conveyor_1, self).__init__()
+        self.diverter = conveyor.Diverter()
+        self.diverter.lane_diverter = {'work':{'work':self.diverter_work_work,'bypass':self.diverter_work_bypass},'bypass':{'work':self.diverter_bypass_work,'bypass':self.diverter_bypass_bypass}}
+        pass
+    
+    def diverter_work_work(self):
+        _logger.info("Setting Diverter from Work to Work")
+        pass
+    
+    def diverter_work_bypass(self):
+        _logger.info("Setting Diverter from Work to Bypass")
+        pass
+    
+    def diverter_bypass_work(self):
+        _logger.info("Setting Diverter from Bypass to Work")
+        pass
+    
+    def diverter_bypass_bypass(self):
+        _logger.info("Setting Diverter from Bypass to Bypass")
+        pass
+
+
+
+
+
 #startup this machine
 if __name__ == "__main__":
     
