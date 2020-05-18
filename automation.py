@@ -17,14 +17,16 @@ class Machine(machine.Machine):
         self.route_node_id = False
         self.route_node_working_lane = False
         self.route_node_bypass_lane = False
-        self.route_destination_cashe = {}
-        self.route_node_working_queue = []
-        self.carrier_history_cache = {}
         
+        #route node lanes
+        self.route_node_working_queue = [] #this var contains the order the carriers are in the queue by history_id
+        self.route_node_bypass_queue = [] #this var contains the order the carriers are in the queue by history_id
         self.route_node_thread = threading.Thread(target=self.update_route_node_loop, daemon=True)
         self.route_node_thread.start()
         self.route_queue_thread = threading.Thread(target=self.update_queues_thread, daemon=True)
         
+        self.carrier_history_cache = {} #this var contains the carrier history database objects that are in the queue
+        self.currernt_carrier = False
         
         #internal vars
         self.run_status = False
@@ -110,16 +112,25 @@ class Machine(machine.Machine):
     def update_working_lane_queue(self):
         _logger.info("Updateing carrier Queue")
         
+        self.route_node_working_queue = []
+        self.route_node_bypass_queue = []
+        
         #fetch the carrier_ids queue from the database
         obj_carrier_history = self.api.env["product.carrier.history"]
-        search_doamin = [("route_node_lane_id","=",self.route_node_working_lane.id)]
-        self.route_node_working_queue = obj_carrier_history.search(search_doamin)
+        search_doamin = [("route_node_id","=",self.route_node_id.id)]
+        carriers = obj_carrier_history.browse(obj_carrier_history.search(search_doamin))
         
         #cycle through all the carriers in the database, verify them in the queue
-        for carrier_history in self.route_node_working_queue:
-            if carrier_history not in self.carrier_history_cache:
+        for carrier_history in carriers:
+            if carrier_history.route_node_lane_id.type == 'work':
+                self.route_node_working_queue.append(carrier_history.id)
+                
+            if carrier_history.route_node_lane_id.type == 'bypass':
+                self.route_node_bypass_queue.append(carrier_history.id)
+                
+            if carrier_history.id not in self.carrier_history_cache:
                 #add this carrier to the queue cache.
-                self.carrier_history_cache[carrier_history] = Carrier(self.api, obj_carrier_history.browse(carrier_history))
+                self.carrier_history_cache[carrier_history.id] = Carrier(self.api, carrier_history)
         pass
     
     #Button inputs
@@ -242,6 +253,7 @@ class Machine(machine.Machine):
                 #reset any preflight warning indicators
                 self.warn = False
                 
+                
                 #monitor and wait for the ingress trigger.
                 if not self.ingress_trigger():
                     #no product is waiting for this machine.
@@ -310,7 +322,7 @@ class Machine(machine.Machine):
     
     def quit(self):
         _logger.info("Machine Shutdown.")
-        return super(machine, self).quit()    
+        return super(Machine, self).quit()    
         
         
 class Carrier(object):
