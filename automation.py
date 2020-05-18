@@ -117,7 +117,7 @@ class Machine(machine.Machine):
         
         #fetch the carrier_ids queue from the database
         obj_carrier_history = self.api.env["product.carrier.history"]
-        search_doamin = [("route_node_id","=",self.route_node_id.id)]
+        search_doamin = [("route_node_lane_id.node_id","=",self.route_node_id.id)]
         carriers = obj_carrier_history.browse(obj_carrier_history.search(search_doamin))
         
         #cycle through all the carriers in the database, verify them in the queue
@@ -253,7 +253,6 @@ class Machine(machine.Machine):
                 #reset any preflight warning indicators
                 self.warn = False
                 
-                
                 #monitor and wait for the ingress trigger.
                 if not self.ingress_trigger():
                     #no product is waiting for this machine.
@@ -267,6 +266,11 @@ class Machine(machine.Machine):
                 #we have a product to work on, set the busy flag.
                 _logger.info("Machines ingress has been triggered.")
                 self.busy = True
+                
+                #set the current carrier var
+                
+                self.currernt_carrier = self.carrier_history_cache[self.route_node_working_queue[0]]
+                _logger.info("Processing %s" % self.currernt_carrier.carrier_history_id.name)
                 
                 #check the blocking status of the machine and workcenter in odoo.
                 if self.get_blocking_status():
@@ -291,7 +295,7 @@ class Machine(machine.Machine):
                 #ingress has been processed sucessfully, continue to process the product.
                 _logger.info("Machine has processed ingress")
                 
-                
+                #process egress from the machine.
                 _logger.info("Machine is ready to process egress")
                 if not self.process_egress():
                     #there was a problem processing the egress, set the run status to False and warning to True
@@ -300,6 +304,14 @@ class Machine(machine.Machine):
                     _logger.warning("Failed to process egress.")
                     break
                 _logger.info("Machine has processed egress")
+                
+                
+                #process carrier compleeted in the database
+                self.currernt_carrier.carrier_history_id.mark_as_done()
+                #remove the carrier history from the cache
+                self.carrier_history_cache[self.currernt_carrier.id].pop()
+                #clear the current carrier var
+                self.currernt_carrier = False
             time.sleep(1)
                 
     def preflight_checks(self):
@@ -330,6 +342,6 @@ class Carrier(object):
         self.api = api
         self.carrier_history_id = carrier_history_id
         
-        _logger.info("Added %s " % (self.carrier_history_id.name))
+        _logger.info("Added %s" % (self.carrier_history_id.name))
         pass
     
