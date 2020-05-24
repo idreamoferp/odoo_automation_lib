@@ -7,7 +7,7 @@ _logger = logging.getLogger("Automation")
 indicator_on_time = 1.0
 indicator_off_time = 0.50
 
-class Machine(machine.Machine):
+class MRP_Automation(machine.Machine):
     #this class is for the manufacturing automation machine
     #inherits [machine] for equpiment level functions and calibrations
     def __init__(self, api, asset_id):
