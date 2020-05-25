@@ -11,7 +11,7 @@ class MRP_Automation(machine.Machine):
     #this class is for the manufacturing automation machine
     #inherits [machine] for equpiment level functions and calibrations
     def __init__(self, api, asset_id):
-        super(Machine, self).__init__(api, asset_id)
+        super(MRP_Automation, self).__init__(api, asset_id)
         
         #odoo route node
         self.route_node_id = False
