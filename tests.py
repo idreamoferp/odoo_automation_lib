@@ -58,6 +58,10 @@ class TestMachine(automation.MRP_Automation):
         self.button_input_thread = threading.Thread(target=self.button_input_loop, daemon=True)
         self.button_input_thread.start()
         
+        #init route lanes
+        
+        self.route_lanes = [MRP_Carrier_Lane_0(self.api, self), MRP_Carrier_Lane_1(self.api, self)]
+        
         _logger.info("Machine INIT Compleete.")
         return
         
@@ -169,6 +173,19 @@ class TestMachine(automation.MRP_Automation):
         self.conveyor_1.diverter.clear_divert()
         return True
         
+class MRP_Carrier_Lane_0(automation.MRP_Carrier_Lane):
+    def __init__(self, api, mrp_automation_machine):
+        super(MRP_Carrier_Lane_0, self).__init__(api, mrp_automation_machine)
+        self._logger = logging.getLogger("Carrier Lane 0")
+        pass
+    
+class MRP_Carrier_Lane_1(automation.MRP_Carrier_Lane):
+    def __init__(self, api, mrp_automation_machine):
+        super(MRP_Carrier_Lane_1, self).__init__(api, mrp_automation_machine)
+        self._logger = logging.getLogger("Carrier Lane 1")
+        pass
+    
+    
 class Conveyor_1(conveyor.Conveyor):
     def __init__(self):
         super(Conveyor_1, self).__init__()
