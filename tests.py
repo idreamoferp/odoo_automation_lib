@@ -37,22 +37,6 @@ class TestMachine(automation.MRP_Automation):
         self.button_estop_led.direction = digitalio.Direction.OUTPUT
         self.button_estop_led.value = True
         
-        self.input_ingress = digitalio.DigitalInOut(board.P9_17)
-        self.input_ingress.direction = digitalio.Direction.INPUT
-        self.input_ingress.pull = digitalio.Pull.UP
-        
-        self.ingress_end_stop = digitalio.DigitalInOut(board.P9_21)
-        self.ingress_end_stop.direction = digitalio.Direction.INPUT
-        self.ingress_end_stop.pull = digitalio.Pull.UP
-        
-        self.output_ingress_gate = digitalio.DigitalInOut(board.P9_18)
-        self.output_ingress_gate.direction = digitalio.Direction.OUTPUT
-        self.output_ingress_gate.value = True
-        
-        self.output_carrier_capture = digitalio.DigitalInOut(board.P9_22)
-        self.output_carrier_capture.direction = digitalio.Direction.OUTPUT
-        self.output_carrier_capture.value = True
-        
         super(TestMachine, self).__init__(api, asset_id)
         
         self.button_input_thread = threading.Thread(target=self.button_input_loop, daemon=True)
@@ -109,13 +93,35 @@ class TestMachine(automation.MRP_Automation):
         #put reboot i/o here
         return super(TestMachine, self).e_stop_reset()
         
-    
+class MRP_Carrier_Lane_0(automation.MRP_Carrier_Lane):
+    def __init__(self, api, mrp_automation_machine):
+        
+        super(MRP_Carrier_Lane_0, self).__init__(api, mrp_automation_machine)
+        self._logger = logging.getLogger("Carrier Lane 0")
+        
+        self._logger.info("Setup GPIO Pins")
+        self.input_ingress = digitalio.DigitalInOut(board.P9_17)
+        self.input_ingress.direction = digitalio.Direction.INPUT
+        self.input_ingress.pull = digitalio.Pull.UP
+        
+        self.ingress_end_stop = digitalio.DigitalInOut(board.P9_21)
+        self.ingress_end_stop.direction = digitalio.Direction.INPUT
+        self.ingress_end_stop.pull = digitalio.Pull.UP
+        
+        self.output_ingress_gate = digitalio.DigitalInOut(board.P9_18)
+        self.output_ingress_gate.direction = digitalio.Direction.OUTPUT
+        self.output_ingress_gate.value = True
+        
+        self.output_carrier_capture = digitalio.DigitalInOut(board.P9_22)
+        self.output_carrier_capture.direction = digitalio.Direction.OUTPUT
+        self.output_carrier_capture.value = True
+        pass
     
     #main loop functions
     def preflight_checks(self):
         #check that the machine is ready to accept a product.
         if not self.ingress_end_stop.value:
-            _logger.warn("Carrier End Stop trigger, a carrier may be trapped in the machine.")
+            self._logger.warn("Carrier End Stop trigger, a carrier may be trapped in the machine.")
             return False
         
         return True
@@ -127,35 +133,34 @@ class TestMachine(automation.MRP_Automation):
         
         #open ingress gate
         self.output_ingress_gate.value = False
-        _logger.info("Machine opened ingress gate, waiting for product to trigger end stop")
+        self._logger.info("Machine opened ingress gate, waiting for product to trigger end stop")
         
         #wait for ingress end stop trigger
         time_out = time.time()
         while self.ingress_end_stop.value:
             if time_out + 60 < time.time():
-                _logger.warn("Timeout waiting for ingress end stop trigger")
+                self._logger.warn("Timeout waiting for ingress end stop trigger")
                 return False
             #throttle wait peroid.
             time.sleep(0.5)
         
-        _logger.info("Product triggered endstop, closing ingress gate, capture product carrier")    
+        self._logger.info("Product triggered endstop, closing ingress gate, capture product carrier")    
         self.output_ingress_gate.value = True
         self.output_carrier_capture.value = False
         
-        _logger.info("Rotate the product until the carrier home is triggered")
+        self._logger.info("Rotate the product until the carrier home is triggered")
         time.sleep(3)
         
         
         
         return True
         
-        
     def process_egress(self):
-        _logger.info("Machine opening egress gate, waiting to clear end stop trigger.")
+        self._logger.info("Machine opening egress gate, waiting to clear end stop trigger.")
         
         #configure diverter for the destination
         destination_lane = self.currernt_carrier.carrier_history_id.route_node_lane_dest_id
-        self.conveyor_1.diverter.divert(self.route_node_working_lane, destination_lane)
+        self.mrp_automation_machine.conveyor_1.diverter.divert(self.route_node_lane, destination_lane)
         
         #release carrier capture
         self.output_carrier_capture.value = True
@@ -164,20 +169,14 @@ class TestMachine(automation.MRP_Automation):
         time_out = time.time()
         while not self.ingress_end_stop.value:
             if time_out + 60 < time.time():
-                _logger.warn("Timeout waiting for egress end stop trigger")
+                self._logger.warn("Timeout waiting for egress end stop trigger.")
                 return False
             #throttle wait peroid.
             time.sleep(0.5)
         
         #free the diverter for other operations
-        self.conveyor_1.diverter.clear_divert()
+        self.mrp_automation_machine.conveyor_1.diverter.clear_divert()
         return True
-        
-class MRP_Carrier_Lane_0(automation.MRP_Carrier_Lane):
-    def __init__(self, api, mrp_automation_machine):
-        super(MRP_Carrier_Lane_0, self).__init__(api, mrp_automation_machine)
-        self._logger = logging.getLogger("Carrier Lane 0")
-        pass
     
 class MRP_Carrier_Lane_1(automation.MRP_Carrier_Lane):
     def __init__(self, api, mrp_automation_machine):
