@@ -15,18 +15,8 @@ class MRP_Automation(machine.Machine):
         
         #odoo route node
         self.route_node_id = False
-        self.route_node_working_lane = False
-        self.route_node_bypass_lane = False
-        
-        #route node lanes
-        self.route_node_working_queue = [] #this var contains the order the carriers are in the queue by history_id
-        self.route_node_bypass_queue = [] #this var contains the order the carriers are in the queue by history_id
         self.route_node_thread = threading.Thread(target=self.update_route_node_loop, daemon=True)
         self.route_node_thread.start()
-        self.route_queue_thread = threading.Thread(target=self.update_queues_thread, daemon=True)
-        
-        self.carrier_history_cache = {} #this var contains the carrier history database objects that are in the queue
-        self.currernt_carrier = False
         
         #internal vars
         self.run_status = False
@@ -91,48 +81,6 @@ class MRP_Automation(machine.Machine):
         self.route_queue_thread.start()
         pass
             
-    def update_queues_thread(self):
-        time.sleep(10)
-        #loop forever
-        while True:
-            #refresh the queues only when running
-            while self.run_status and not self.busy and self.route_node_id:
-                try:
-                    self.update_working_lane_queue()
-                except Exception as e:
-                    _logger.error(e)
-                
-                
-                #pause time between queue refreshes
-                time.sleep(5)
-                
-            #pause time between run_status=False refreshes
-            time.sleep(1)
-        
-    def update_working_lane_queue(self):
-        _logger.info("Updateing carrier Queue")
-        
-        self.route_node_working_queue = []
-        self.route_node_bypass_queue = []
-        
-        #fetch the carrier_ids queue from the database
-        obj_carrier_history = self.api.env["product.carrier.history"]
-        search_doamin = [("route_node_lane_id.node_id","=",self.route_node_id.id)]
-        carriers = obj_carrier_history.browse(obj_carrier_history.search(search_doamin))
-        
-        #cycle through all the carriers in the database, verify them in the queue
-        for carrier_history in carriers:
-            if carrier_history.route_node_lane_id.type == 'work':
-                self.route_node_working_queue.append(carrier_history.id)
-                
-            if carrier_history.route_node_lane_id.type == 'bypass':
-                self.route_node_bypass_queue.append(carrier_history.id)
-                
-            if carrier_history.id not in self.carrier_history_cache:
-                #add this carrier to the queue cache.
-                self.carrier_history_cache[carrier_history.id] = Carrier(self.api, carrier_history)
-        pass
-    
     #Button inputs
     def button_start(self):
         #if the run status is already True, skip these things.
@@ -335,7 +283,63 @@ class MRP_Automation(machine.Machine):
     def quit(self):
         _logger.info("Machine Shutdown.")
         return super(Machine, self).quit()    
+
+class MRP_Carrier_Lane(object):
+    def __init__(self, api, carrier_lane_id):
+        #upper level machine vars
+        self.api = api
+        self.mrp_automation_machine = False
         
+        #route node lanes
+        self.route_node_lane = carrier_lane_id
+        self.route_node_carrier_queue = [] #this var contains the order the carriers are in the queue by history_id
+        self.route_queue_thread = threading.Thread(target=self.update_queues_thread, daemon=True)
+        self.route_queue_thread.start()
+        
+        #carriers in this lane
+        self.carrier_history_cache = {} #this var contains the carrier history database objects that are in the queue
+        self.currernt_carrier = False #this is the carrier currently in the machine to be worked on.
+        
+        #upper level machine vars
+        self.run_status = property(lambda self: self.mrp_automation_machine.run_status)
+        self.e_stop_status = False
+        self.busy = False
+        self.warn = False
+        pass
+    
+    def update_queues_thread(self):
+        time.sleep(10)
+        #loop forever
+        while True:
+            #refresh the queues only when running
+            while self.run_status and not self.busy and self.route_node_id:
+                try:
+                    self.update_working_lane_queue()
+                except Exception as e:
+                    _logger.error(e)
+                
+                #pause time between queue refreshes
+                time.sleep(5)
+                
+            #pause time between run_status=False refreshes
+            time.sleep(1)
+        
+    def update_working_lane_queue(self):
+        _logger.info("Updateing carrier Queue")
+        
+        #fetch the carrier_ids queue from the database
+        obj_carrier_history = self.api.env["product.carrier.history"]
+        search_doamin = [("route_node_lane_id","=",self.route_node_lane.id)]
+        self.route_node_carrier_queue = obj_carrier_history.search(search_doamin)
+        
+        #cycle through all the carriers in the database, verify them in the queue
+        for carrier_history in obj_carrier_history.browse(self.route_node_carrier_queue):
+            if carrier_history.id not in self.carrier_history_cache:
+                #add this carrier to the queue cache.
+                self.carrier_history_cache[carrier_history.id] = Carrier(self.api, carrier_history)
+        pass
+    
+    
         
 class Carrier(object):
     def __init__(self, api, carrier_history_id):
