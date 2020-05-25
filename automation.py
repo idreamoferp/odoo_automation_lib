@@ -17,6 +17,7 @@ class MRP_Automation(machine.Machine):
         self.route_node_id = False
         self.route_node_thread = threading.Thread(target=self.update_route_node_loop, daemon=True)
         self.route_node_thread.start()
+        self.route_lanes = []
         
         #internal vars
         self.run_status = False
@@ -68,17 +69,12 @@ class MRP_Automation(machine.Machine):
         self.route_node_id = self.api.env['product.carrier.route.node'].browse(route_node_id)
         
         #setup the lanes on this route node
-        for lane in self.route_node_id.lane_ids:
-            #setup the working lane
-            if lane.type =="work" and not self.route_node_working_lane:
-                self.route_node_working_lane = lane
-                
-            #setup the bypass lane
-            if lane.type == "bypass" and not self.route_node_bypass_lane:
-                self.route_node_bypass_lane = lane
+        for i in range(len(self.route_node_id.lane_ids)):
+            #set the lane_id on the lane objects stored in list self.route_lanes
+            self.route_lanes[i].route_node_lane = self.route_node_id.lane_ids[i]
+            pass
         
-        #start the queue thread
-        self.route_queue_thread.start()
+        _logger.info("Updated Route Node Lanes")
         pass
             
     #Button inputs
@@ -89,9 +85,6 @@ class MRP_Automation(machine.Machine):
             if self.e_stop_status:
                 #the machine is in an e-stop status, cannot start.
                 return False
-                
-            #update the working queue
-            self.update_working_lane_queue()
             
             #set the run status to True to start the machine.
             self.run_status = True
@@ -285,38 +278,54 @@ class MRP_Automation(machine.Machine):
         return super(Machine, self).quit()    
 
 class MRP_Carrier_Lane(object):
-    def __init__(self, api, carrier_lane_id):
+    def __init__(self, api, mrp_automation_machine):
         #upper level machine vars
         self.api = api
-        self.mrp_automation_machine = False
+        self.mrp_automation_machine = mrp_automation_machine
+        self._logger = logging.getLogger("Carrier Lane")
         
         #route node lanes
-        self.route_node_lane = carrier_lane_id
+        self.route_node_lane = False
         self.route_node_carrier_queue = [] #this var contains the order the carriers are in the queue by history_id
         self.route_queue_thread = threading.Thread(target=self.update_queues_thread, daemon=True)
         self.route_queue_thread.start()
         
-        #carriers in this lane
+        #carrier lane queue for this lane
         self.carrier_history_cache = {} #this var contains the carrier history database objects that are in the queue
         self.currernt_carrier = False #this is the carrier currently in the machine to be worked on.
         
-        #upper level machine vars
-        self.run_status = property(lambda self: self.mrp_automation_machine.run_status)
-        self.e_stop_status = False
-        self.busy = False
-        self.warn = False
         pass
     
+    #upper level machine vars
+    @property
+    def run_status(self):
+        return self.mrp_automation_machine.run_status
+        
+    @property
+    def e_stop_status(self):
+        return self.mrp_automation_machine.e_stop_status
+    
+    @property
+    def busy(self):
+        return self.mrp_automation_machine.busy
+        
+    @property
+    def warn(self):
+        return self.mrp_automation_machine.warn
+    
+    
+    #Lane queueing and updating.
     def update_queues_thread(self):
         time.sleep(10)
         #loop forever
         while True:
             #refresh the queues only when running
-            while self.run_status and not self.busy and self.route_node_id:
+            
+            while self.run_status and not self.busy and self.route_node_lane:
                 try:
-                    self.update_working_lane_queue()
+                    self.update_lane_queue()
                 except Exception as e:
-                    _logger.error(e)
+                    self._logger.error(e)
                 
                 #pause time between queue refreshes
                 time.sleep(5)
@@ -324,8 +333,8 @@ class MRP_Carrier_Lane(object):
             #pause time between run_status=False refreshes
             time.sleep(1)
         
-    def update_working_lane_queue(self):
-        _logger.info("Updateing carrier Queue")
+    def update_lane_queue(self):
+        self._logger.info("Updateing carrier Queue")
         
         #fetch the carrier_ids queue from the database
         obj_carrier_history = self.api.env["product.carrier.history"]
@@ -337,6 +346,9 @@ class MRP_Carrier_Lane(object):
             if carrier_history.id not in self.carrier_history_cache:
                 #add this carrier to the queue cache.
                 self.carrier_history_cache[carrier_history.id] = Carrier(self.api, carrier_history)
+                self._logger.info("Added to Queue - %s" % (carrier_history.display_name))
+                
+        #TODO will need to pop() out the entires in carrier_history_cache{} that are not in route_node_carrier_queue[] at some point
         pass
     
     
@@ -345,7 +357,7 @@ class Carrier(object):
     def __init__(self, api, carrier_history_id):
         self.api = api
         self.carrier_history_id = carrier_history_id
+        self._logger = logging.getLogger("Carrier %s" % (carrier_history_id.barcode))
         
-        _logger.info("Added %s" % (self.carrier_history_id.name))
         pass
     
