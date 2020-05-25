@@ -6,7 +6,7 @@ import digitalio, board #blinka libs
 logging.basicConfig(format="%(asctime)s %(levelname)s %(name)s - %(message)s",datefmt='%m/%d/%Y %I:%M:%S %p',level=logging.INFO)
 _logger = logging.getLogger("Test Machine")
 
-class TestMachine(automation.Machine):
+class TestMachine(automation.MRP_Automation):
     
     def __init__(self, api, asset_id):
         #init conveyor for this machine
