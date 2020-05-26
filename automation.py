@@ -7,26 +7,17 @@ _logger = logging.getLogger("Automation")
 indicator_on_time = 1.0
 indicator_off_time = 0.50
 
-class Machine(machine.Machine):
+class MRP_Automation(machine.Machine):
     #this class is for the manufacturing automation machine
     #inherits [machine] for equpiment level functions and calibrations
     def __init__(self, api, asset_id):
-        super(Machine, self).__init__(api, asset_id)
+        super(MRP_Automation, self).__init__(api, asset_id)
         
         #odoo route node
         self.route_node_id = False
-        self.route_node_working_lane = False
-        self.route_node_bypass_lane = False
-        
-        #route node lanes
-        self.route_node_working_queue = [] #this var contains the order the carriers are in the queue by history_id
-        self.route_node_bypass_queue = [] #this var contains the order the carriers are in the queue by history_id
         self.route_node_thread = threading.Thread(target=self.update_route_node_loop, daemon=True)
         self.route_node_thread.start()
-        self.route_queue_thread = threading.Thread(target=self.update_queues_thread, daemon=True)
-        
-        self.carrier_history_cache = {} #this var contains the carrier history database objects that are in the queue
-        self.currernt_carrier = False
+        self.route_lanes = []
         
         #internal vars
         self.run_status = False
@@ -41,8 +32,7 @@ class Machine(machine.Machine):
         self.indicator_e_stop_thread.start()
         self.indicator_warn_thread = threading.Thread(target=self.indicator_warn_loop, daemon=True)
         self.indicator_warn_thread.start()
-        self.main_machine_thread = threading.Thread(target=self.main_machine_loop, daemon=True)
-        self.main_machine_thread.start()
+        
         _logger.info("Machine INIT Compleete.")
         return 
     
@@ -78,61 +68,14 @@ class Machine(machine.Machine):
         self.route_node_id = self.api.env['product.carrier.route.node'].browse(route_node_id)
         
         #setup the lanes on this route node
-        for lane in self.route_node_id.lane_ids:
-            #setup the working lane
-            if lane.type =="work" and not self.route_node_working_lane:
-                self.route_node_working_lane = lane
-                
-            #setup the bypass lane
-            if lane.type == "bypass" and not self.route_node_bypass_lane:
-                self.route_node_bypass_lane = lane
+        for i in range(len(self.route_node_id.lane_ids)):
+            #set the lane_id on the lane objects stored in list self.route_lanes
+            self.route_lanes[i].route_node_lane = self.route_node_id.lane_ids[i]
+            pass
         
-        #start the queue thread
-        self.route_queue_thread.start()
+        _logger.info("Updated Route Node Lanes")
         pass
             
-    def update_queues_thread(self):
-        time.sleep(10)
-        #loop forever
-        while True:
-            #refresh the queues only when running
-            while self.run_status and not self.busy and self.route_node_id:
-                try:
-                    self.update_working_lane_queue()
-                except Exception as e:
-                    _logger.error(e)
-                
-                
-                #pause time between queue refreshes
-                time.sleep(5)
-                
-            #pause time between run_status=False refreshes
-            time.sleep(1)
-        
-    def update_working_lane_queue(self):
-        _logger.info("Updateing carrier Queue")
-        
-        self.route_node_working_queue = []
-        self.route_node_bypass_queue = []
-        
-        #fetch the carrier_ids queue from the database
-        obj_carrier_history = self.api.env["product.carrier.history"]
-        search_doamin = [("route_node_lane_id.node_id","=",self.route_node_id.id)]
-        carriers = obj_carrier_history.browse(obj_carrier_history.search(search_doamin))
-        
-        #cycle through all the carriers in the database, verify them in the queue
-        for carrier_history in carriers:
-            if carrier_history.route_node_lane_id.type == 'work':
-                self.route_node_working_queue.append(carrier_history.id)
-                
-            if carrier_history.route_node_lane_id.type == 'bypass':
-                self.route_node_bypass_queue.append(carrier_history.id)
-                
-            if carrier_history.id not in self.carrier_history_cache:
-                #add this carrier to the queue cache.
-                self.carrier_history_cache[carrier_history.id] = Carrier(self.api, carrier_history)
-        pass
-    
     #Button inputs
     def button_start(self):
         #if the run status is already True, skip these things.
@@ -141,9 +84,6 @@ class Machine(machine.Machine):
             if self.e_stop_status:
                 #the machine is in an e-stop status, cannot start.
                 return False
-                
-            #update the working queue
-            self.update_working_lane_queue()
             
             #set the run status to True to start the machine.
             self.run_status = True
@@ -232,13 +172,103 @@ class Machine(machine.Machine):
     #machine functions
     def get_blocking_status(self):
         #pull equipment blocking state
-        result = super(Machine, self).get_blocking_status()
+        result = super(MRP_Automation, self).get_blocking_status()
         # if not result:
         #     #if equipment not blocked, check work center blocking state
         #     if self.workcenter_id.working_state == 'blocked':
         #         result = True
         return result
         
+    
+    
+    def quit(self):
+        _logger.info("Machine Shutdown.")
+        return super(Machine, self).quit()    
+
+class MRP_Carrier_Lane(object):
+    def __init__(self, api, mrp_automation_machine):
+        self._logger = logging.getLogger("Carrier Lane")
+        self._logger.info("Initialize Lane")
+        
+        #upper level machine vars
+        self.api = api
+        self.mrp_automation_machine = mrp_automation_machine
+        
+        self.busy = False #busy flag to indicate this lane is in the process of doing work.
+        self.warn = False #warning flag to indicate this lane has a warning
+        
+        #route node lanes
+        self.route_node_lane = False
+        
+        #carrier lane queue for this lane
+        self.carrier_history_cache = {} #this var contains the carrier history database objects that are in the queue
+        self.route_node_carrier_queue = [] #this var contains the order the carriers are in the queue by history_id
+        self.currernt_carrier = False #this is the carrier currently in the machine to be worked on.
+        
+        self.route_queue_thread = threading.Thread(target=self.update_queues_thread, daemon=True)
+        self.route_queue_thread.start()
+        
+        #main worker thread
+        self.main_machine_thread = threading.Thread(target=self.main_machine_loop, daemon=True)
+        self.main_machine_thread.start()
+        pass
+    
+    #upper level machine vars
+    @property
+    def run_status(self):
+        return self.mrp_automation_machine.run_status
+        
+    @property
+    def e_stop_status(self):
+        return self.mrp_automation_machine.e_stop_status
+        
+    @property
+    def warn(self):
+        return self.mrp_automation_machine.warn
+    
+    @warn.setter
+    def warn(self, value):
+        self.mrp_automation_machine.warn = value
+    
+    #Lane queueing and updating.
+    def update_queues_thread(self):
+        time.sleep(10)
+        #loop forever
+        while True:
+            #refresh the queues only when running
+            
+            while self.run_status and not self.busy and self.route_node_lane:
+                try:
+                    self.update_lane_queue()
+                except Exception as e:
+                    self._logger.error(e)
+                
+                #pause time between queue refreshes
+                time.sleep(5)
+                
+            #pause time between run_status=False refreshes
+            time.sleep(1)
+        
+    def update_lane_queue(self):
+        self._logger.debug("Updateing Carrier Queue")
+        
+        #fetch the carrier_ids queue from the database
+        obj_carrier_history = self.api.env["product.carrier.history"]
+        search_doamin = [("route_node_lane_id","=",self.route_node_lane.id)]
+        self.route_node_carrier_queue = obj_carrier_history.search(search_doamin)
+        
+        #cycle through all the carriers in the database, verify them in the queue
+        for carrier_history in obj_carrier_history.browse(self.route_node_carrier_queue):
+            if carrier_history.id not in self.carrier_history_cache:
+                #add this carrier to the queue cache.
+                self.carrier_history_cache[carrier_history.id] = Carrier(self.api, carrier_history)
+                self._logger.info("Added to Queue - %s" % (carrier_history.display_name))
+                
+        #TODO will need to pop() out the entires in carrier_history_cache{} that are not in route_node_carrier_queue[] at some point
+        pass
+    
+    
+    #machine loop and events
     def main_machine_loop(self):
         #this will be the loop the machine takes for each manufacturing cycle.
         while True:
@@ -246,8 +276,9 @@ class Machine(machine.Machine):
             while self.run_status:
                 #preflight checks
                 if not self.preflight_checks():
-                    time.sleep(1)
                     self.warn=True
+                    self._logger.warning("Failed Pre-Flight checks.")
+                    time.sleep(30)
                     break
                 
                 #reset any preflight warning indicators
@@ -264,52 +295,55 @@ class Machine(machine.Machine):
                     break
                 
                 #we have a product to work on, set the busy flag.
-                _logger.info("Machines ingress has been triggered.")
+                self._logger.info("Machines ingress has been triggered.")
                 self.busy = True
                 
                 #set the current carrier var
-                
-                self.currernt_carrier = self.carrier_history_cache[self.route_node_working_queue[0]]
-                _logger.info("Processing %s" % self.currernt_carrier.carrier_history_id.name)
+                if len(self.route_node_carrier_queue) == 0:
+                    self._logger.warn("The Carrier Queue is empty.")
+                    self.busy = False
+                    time.sleep(10)
+                    break
+        
+                self.currernt_carrier = self.carrier_history_cache[self.route_node_carrier_queue[0]]
+                self._logger.info("Processing %s" % self.currernt_carrier.carrier_history_id.name)
                 
                 #check the blocking status of the machine and workcenter in odoo.
-                if self.get_blocking_status():
+                if self.mrp_automation_machine.get_blocking_status():
                     #throttle retries a bit
                     time.sleep(1)
                     #exit this loop
                     
-                    _logger.warning("Machine or Workcenter is blocking this machine from running")
+                    self._logger.warning("Machine or Workcenter is blocking this machine from running.")
                     break
                 
                 #all is well, we can continue to bring in the product to the machine
-                _logger.info("Machine is ready to process ingress")
+                self._logger.info("Machine is ready to process ingress.")
                 
                 #prcess ingress, bring the product into the machine and prepare it for processing.
                 if not self.process_ingress():
                     #there was a problem processing the ingress, set the run status to False and warning to True
-                    self.run_status = False
                     self.warn = True
-                    _logger.warning("Failed to process ingress.")
+                    self._logger.warning("Failed to process ingress.")
                     break
                     
                 #ingress has been processed sucessfully, continue to process the product.
-                _logger.info("Machine has processed ingress")
+                self._logger.info("Machine has processed ingress.")
                 
                 #process egress from the machine.
-                _logger.info("Machine is ready to process egress")
+                self._logger.info("Machine is ready to process egress.")
                 if not self.process_egress():
                     #there was a problem processing the egress, set the run status to False and warning to True
-                    self.run_status = False
                     self.warn = True
-                    _logger.warning("Failed to process egress.")
+                    self._logger.warning("Failed to process egress.")
                     break
-                _logger.info("Machine has processed egress")
+                self._logger.info("Machine has processed egress.")
                 
                 
                 #process carrier compleeted in the database
-                self.currernt_carrier.carrier_history_id.mark_as_done()
+                #self.currernt_carrier.carrier_history_id.mark_as_done()
                 #remove the carrier history from the cache
-                self.carrier_history_cache[self.currernt_carrier.id].pop()
+                self.carrier_history_cache.pop(self.currernt_carrier.id)
                 #clear the current carrier var
                 self.currernt_carrier = False
             time.sleep(1)
@@ -318,7 +352,7 @@ class Machine(machine.Machine):
         #to be inherited by the main machine config and returns True when the machine is ready to accept a product.
         
         #check that the machine in front of this machine is capible of accepting more product
-        return False 
+        return True 
                 
     def ingress_trigger(self):
         #to be inherited by the main machine config and returns True when the product has arrived at the ingress gate.
@@ -332,16 +366,16 @@ class Machine(machine.Machine):
         #to be inherited by the main machine config and returns True when the product has processed through egress and is clear of this machine.
         return False
     
-    def quit(self):
-        _logger.info("Machine Shutdown.")
-        return super(Machine, self).quit()    
-        
         
 class Carrier(object):
     def __init__(self, api, carrier_history_id):
         self.api = api
         self.carrier_history_id = carrier_history_id
+        self._logger = logging.getLogger("Carrier %s" % (carrier_history_id.barcode))
         
-        _logger.info("Added %s" % (self.carrier_history_id.name))
+        
         pass
     
+    @property
+    def id(self):
+        return self.carrier_history_id.id
