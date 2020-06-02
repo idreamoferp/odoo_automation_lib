@@ -261,7 +261,7 @@ class MRP_Carrier_Lane(object):
         for carrier_history in obj_carrier_history.browse(self.route_node_carrier_queue):
             if carrier_history.id not in self.carrier_history_cache:
                 #add this carrier to the queue cache.
-                self.carrier_history_cache[carrier_history.id] = Carrier(self.api, carrier_history)
+                self.carrier_history_cache[carrier_history.id] = Carrier(self.api, carrier_history, carrier_lane_id = self.route_node_lane)
                 self._logger.info("Added to Queue - %s" % (carrier_history.display_name))
                 
         #TODO will need to pop() out the entires in carrier_history_cache{} that are not in route_node_carrier_queue[] at some point
@@ -319,7 +319,7 @@ class MRP_Carrier_Lane(object):
                 
                 #all is well, we can continue to bring in the product to the machine
                 self._logger.info("Machine is ready to process ingress.")
-                
+                self.currernt_carrier.logger.info("Processing Carrier")
                 #prcess ingress, bring the product into the machine and prepare it for processing.
                 if not self.process_ingress():
                     #there was a problem processing the ingress, set the run status to False and warning to True
@@ -341,7 +341,7 @@ class MRP_Carrier_Lane(object):
                 
                 
                 #process carrier compleeted in the database
-                #self.currernt_carrier.carrier_history_id.mark_as_done()
+                self.currernt_carrier.carrier_history_id.transfer_carrier()
                 #remove the carrier history from the cache
                 self.carrier_history_cache.pop(self.currernt_carrier.id)
                 #clear the current carrier var
@@ -368,14 +368,35 @@ class MRP_Carrier_Lane(object):
     
         
 class Carrier(object):
-    def __init__(self, api, carrier_history_id):
+    def __init__(self, api, carrier_history_id, carrier_lane_id):
         self.api = api
+        self.lane_id = carrier_lane_id
         self.carrier_history_id = carrier_history_id
-        self._logger = logging.getLogger("Carrier %s" % (carrier_history_id.barcode))
+        self.logger = logging.getLogger("%s %s" % (self.lane_id.name, carrier_history_id.barcode))
         
-        
+        #setup custom logger to log carrier events to carrier history in odoo
+        ch = Carrier_Handler(carrier = carrier_history_id)
+        ch.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+        self.logger.addHandler(ch)
+        self.logger.info("Create Carier")
         pass
     
     @property
     def id(self):
         return self.carrier_history_id.id
+        
+from logging import StreamHandler
+
+class Carrier_Handler(StreamHandler):
+    def __init__(self, carrier):
+        StreamHandler.__init__(self)
+        self.carrier = carrier
+        
+    def emit(self, record):
+        try:
+            msg = self.format(record)
+            self.carrier.log_event(msg)
+        except Exception as e:
+            pass
+        
+        pass
