@@ -344,6 +344,7 @@ class MRP_Carrier_Lane(object):
                 self.currernt_carrier.carrier_history_id.transfer_carrier()
                 #remove the carrier history from the cache
                 self.carrier_history_cache.pop(self.currernt_carrier.id)
+                self.route_node_carrier_queue.pop(0)
                 #clear the current carrier var
                 self.currernt_carrier = False
             time.sleep(1)
