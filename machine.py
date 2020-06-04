@@ -5,13 +5,16 @@ import logging, odoorpc, threading, time, atexit
 _logger = logging.getLogger("Machine")
 
 class Machine(object):
-    def __init__(self, api, asset_id):
+    def __init__(self, api, asset_id=False):
          #sets an on exit function
-        atexit.register(self.quit)   
+        atexit.register(self.quit)
         
         self.api = api
         self.asset_id = asset_id
-        self.equipment_id = self.api.env['maintenance.equipment'].browse(asset_id)
+        self.equipment_id = False 
+        if self.asset_id:
+            self.equipment_id = self.api.env['maintenance.equipment'].browse(asset_id)
+            
         _logger.info("Machine INIT Compleete.")
         return
     
