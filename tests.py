@@ -1,16 +1,66 @@
 import automation
-import logging, odoorpc, threading, time, argparse
+import logging, odoorpc, time, argparse
 
 #setup logger
-logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.DEBUG)
+logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
 _logger = logging.getLogger("Test Machine")
 
-class TestMachine(automation.Machine):
+class TestMachine(automation.MRP_Automation):
 
     def __init__(self, api, asset_id):
         _logger.info("Machine INIT Compleete.")
-        return super(TestMachine, self).__init__(api, asset_id)
 
+        #init super classes
+        super(TestMachine, self).__init__(api, asset_id)
+
+        #pass the route lanes into the machine for the node_queue to assign.
+        self.route_lanes = [MRP_Carrier_Lane_0(self.api, self), MRP_Carrier_Lane_1(self.api, self)]
+        pass
+
+class MRP_Carrier_Lane_0(automation.MRP_Carrier_Lane):
+    def __init__(self, api, mrp_automation_machine):
+        super(MRP_Carrier_Lane_0, self).__init__(api, mrp_automation_machine)
+        self._logger = logging.getLogger("Carrier Lane 0")
+
+    def preflight_checks(self):
+        time.sleep(5)
+        return True
+
+    def ingress_trigger(self):
+        if len(self.route_node_carrier_queue) > 0:
+            return True
+        return False
+
+    def process_ingress(self):
+        time.sleep(5)
+        return True
+
+    def process_egress(self):
+        time.sleep(5)
+        return True
+
+class MRP_Carrier_Lane_1(automation.MRP_Carrier_Lane):
+    def __init__(self, api, mrp_automation_machine):
+        super(MRP_Carrier_Lane_1, self).__init__(api, mrp_automation_machine)
+        self._logger = logging.getLogger("Carrier Lane 1")
+        pass
+
+    def preflight_checks(self):
+        time.sleep(5)
+        return True
+
+    def ingress_trigger(self):
+        if len(self.route_node_carrier_queue) > 0:
+            return True
+        return False
+
+    def process_ingress(self):
+        time.sleep(5)
+        return True
+
+    def process_egress(self):
+        time.sleep(5)
+        return True
 
 #startup this machine
 if __name__ == "__main__":
@@ -37,7 +87,6 @@ if __name__ == "__main__":
 
     #create instance of this test machine, and start its engine
     test_machine = TestMachine(api=odoo, asset_id=args.equipment_id)
-    test_machine.button_start(
-                              )
+    test_machine.button_start()
     while True:
         time.sleep(1000)
