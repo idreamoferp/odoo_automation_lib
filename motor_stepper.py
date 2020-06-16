@@ -1,10 +1,28 @@
 import Adafruit_BBIO.GPIO as GPIO
 import Adafruit_BBIO.ADC as ADC
 import Adafruit_BBIO.PWM as PWM
-import logging, time, threading, bb_tools
+import logging, time, threading
+
+import digitalio #blinka library
 
 class stepper(object):
-    
+    def __init__(self, name="Stepper"):
+        
+        #motor name and logger setup
+        self.name = name
+        self._logger = logging.getLogger(self.name)
+        
+        #driver controls the pins for the stepper
+        self.driver = False
+        
+        #position and speeds
+        self.current_uom = 0.0
+        self.speed = 0.0
+        
+        #home and end stops
+        self.pin_home = False
+        self.pin_end = False
+        
     def move_rel(self, num_uom, speed=-1):
         step_uom= self.config['settings']['distance_uom_per_step']
         total_steps=num_uom/step_uom
@@ -21,33 +39,6 @@ class stepper(object):
         self._logger.debug("Moving to ABS %s %s" (num_uom, self.config['settings']['distance_uom']))
         self.move_rel(delta_uom,speed)
     
-    def __init__(self, stepper_config):
-        
-        self.config = stepper_config
-        self.name = self.config['name']
-        self._logger = logging.getLogger(self.name)
-        self.driver = globals()[self.config['driver']['name']](self.config['driver'])
-        self.current_uom = 0.0
-        #self.step_angle = self.config['settings']['step_angle']
-        self.pin_home = False
-        self.speed = self.config['settings']['default_speed']
-        
-        #setup pins
-        if self.config['home']['enable']:
-            try:
-                pin = "pin_home"
-                channel = self.config['home']['gpio_mux'][pin]['channel']
-                direction = self.config['home']['gpio_mux'][pin]['direction']
-                pullup = self.config['home']['gpio_mux'][pin]['pullup']
-                initial = self.config['home']['gpio_mux'][pin]['initial']
-                delay = self.config['home']['gpio_mux'][pin]['delay']
-                
-                GPIO.setup(channel,direction,pullup,initial,delay)
-                self.pin_home = channel
-                self._logger.debug("Set GPIO %s/%s/%s" % (pin,channel,direction) )
-            except Exception as e:
-                self._logger.error("Could not set GPIO %s/%s/%s - %s" % (pin,channel,direction,e))
-        
     def home(self, blocking=False):
         if self.pin_home:
             self._logger.debug("%s - Homing" % (self.name))
