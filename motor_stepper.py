@@ -24,6 +24,7 @@ class stepper(object):
         #home and end stops
         self.pin_home = False #blinka pin object
         self.pin_end = False #blinka pin object
+        self.step_away = 10.0
         
     def move_rel(self, num_uom, speed=-1):
         
@@ -42,34 +43,34 @@ class stepper(object):
         self.move_rel(delta_uom, speed)
     
     def home(self, blocking=False):
-        if self.pin_home:
-            self._logger.debug("%s - Homing" % (self.name))
-            escape_max = 10
-            escape_counter = 0
-            self.driver.enable()
+        # if self.pin_home:
+        #     self._logger.debug("Homing")
+        #     escape_max = 10
+        #     escape_counter = 0
+        #     self.driver.enable()
             
-            for home_mode in self.config['home']['settings']['home_sequence']:
-                #step away from home, if home already
-                if not GPIO.input(self.pin_home):   
-                    self.driver.move_steps(self.config['home']['settings']['init_step_away'] ,abs(home_mode))
+        #     for home_mode in self.config['home']['settings']['home_sequence']:
+        #         #step away from home, if home already
+        #         if not self.pin_home:   
+        #             self.driver.move_steps(self.step_away ,abs(home_mode))
                     
-                #start to move in homing direction
-                self.driver.move_duration(home_mode)
+        #         #start to move in homing direction
+        #         self.driver.move_duration(home_mode)
                 
-                #wait for home senor trigger 
-                while GPIO.input(self.pin_home) == True:
-                    pass
+        #         #wait for home senor trigger 
+        #         while GPIO.input(self.pin_home) == True:
+        #             pass
                 
-                #home sensor trggered, record the time
-                time_to_home= self.driver.stop()
-                self._logger.info("Home operation %s took %s seconds" % (home_mode,time_to_home))
-                #move to an offset value 
-                self.driver.move_steps(self.config['home']['settings']['offset'] ,abs(home_mode))
+        #         #home sensor trggered, record the time
+        #         time_to_home= self.driver.stop()
+        #         self._logger.info("Home operation %s took %s seconds" % (home_mode,time_to_home))
+        #         #move to an offset value 
+        #         self.driver.move_steps(self.config['home']['settings']['offset'] ,abs(home_mode))
             
-            #zero out the registers
-            self.zero()
+        #     #zero out the registers
+        #     self.zero()
             
-            self._logger.info("%s - Home" % (self.name))
+        #     self._logger.info("%s - Home" % (self.name))
         return True
         
     def zero(self):
