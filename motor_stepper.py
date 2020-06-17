@@ -6,14 +6,14 @@ import logging, time, threading
 import digitalio #blinka library
 
 class stepper(object):
-    def __init__(self, name="Stepper"):
+    def __init__(self, name, driver):
         
         #motor name and logger setup
         self.name = name
         self._logger = logging.getLogger(self.name)
         
         #driver controls the pins for the stepper
-        self.driver = False
+        self.driver = driver
         
         #position and speeds
         self.distance_uom = "mm"
@@ -216,6 +216,5 @@ class A4988_GPIO(object):
 if __name__ == "__main__":
     driver = A4988_GPIO()
     
-    motor = stepper("Test Motor")
+    motor = stepper("Test Motor", driver)
     
->>>>>>>>> local version
