@@ -190,12 +190,21 @@ class A4988_PWM(object):
 
 class A4988_GPIO(object):
     def __init__(self):
+        self.pin_direction = False
+        self.pin_enable = False
+        self.pin_pulse = False
         pass
     
     def stop(self):
         return duration
             
-    def move(self, num_steps, frequency):
+    def move_steps(self, num_steps, frequency):
+        sleep = (1000/frequency)/2
+        for i in num_steps
+            self.pin_pulse.value = True
+            time_sleep(sleep)
+            self.pin_pulse.value = False
+            time_sleep(sleep)
         return True
         
     def set_direction(self, num)
@@ -215,7 +224,20 @@ class A4988_GPIO(object):
 
 if __name__ == "__main__":
     driver = A4988_GPIO()
+    #set direction pin, output, initial state
+    driver.pin_direction = digitalio.DigitalInOut(board.P8_9)
+    driver.pin_direction.direction = digitalio.Direction.OUTPUT
+    driver.pin_direction.value = True
     
-    motor = stepper("Test Motor")
+    #set Enable pin, output, initial state
+    driver.pin_enable = digitalio.DigitalInOut(board.P8_11)
+    driver.pin_enable.direction = digitalio.Direction.OUTPUT
+    driver.pin_enable.value = True
     
->>>>>>>>> local version
+    #set pulse pin, initial freq, var freq
+    driver.pin_pulse = digitalio.DigitalInOut(board.P8_7)
+    driver.pin_pulse.direction = digitalio.Direction.OUTPUT
+    driver.pin_pulse.value = False
+    
+    # motor1 = stepper("Test Motor")
+    driver.move_steps(1000,500)
