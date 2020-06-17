@@ -16,28 +16,30 @@ class stepper(object):
         self.driver = False
         
         #position and speeds
+        self.distance_uom = "mm"
+        self.step_uom = 0.0
         self.current_uom = 0.0
         self.speed = 0.0
         
         #home and end stops
-        self.pin_home = False
-        self.pin_end = False
+        self.pin_home = False #blinka pin object
+        self.pin_end = False #blinka pin object
         
     def move_rel(self, num_uom, speed=-1):
-        step_uom= self.config['settings']['distance_uom_per_step']
-        total_steps=num_uom/step_uom
+        
+        total_steps=num_uom/self.step_uom
         
         if speed < 0:
             speed = self.speed
             
         self.driver.move_steps(total_steps, speed)
         self.current_uom += num_uom
-        self._logger.debug("Moving REL %s %s" % (num_uom, self.config['settings']['distance_uom']))
+        self._logger.debug("Moving REL %s %s" % (num_uom, self.distance_uom))
         
     def move_abs(self, num_uom, speed=-1):
         delta_uom = num_uom - self.current_uom
-        self._logger.debug("Moving to ABS %s %s" (num_uom, self.config['settings']['distance_uom']))
-        self.move_rel(delta_uom,speed)
+        self._logger.debug("Moving to ABS %s %s" (num_uom, self.distance_uom))
+        self.move_rel(delta_uom, speed)
     
     def home(self, blocking=False):
         if self.pin_home:
@@ -185,7 +187,35 @@ class A4988_PWM(object):
     def quit(self):
         self.disable()
         PWM.stop(self.pins_step)
-            
+
+class A4988_GPIO(object):
+    def __init__(self):
+        pass
     
+    def stop(self):
+        return duration
+            
+    def move(self, num_steps, frequency):
+        return True
         
-                      
+    def set_direction(self, num)
+        pass
+    
+    def resolution_set(self, steptype):
+        pass
+    
+    def enable(self):
+        pass
+    
+    def disable(self):
+        pass
+    
+    def quit(self):
+        self.disable()
+
+if __name__ == "__main__":
+    driver = A4988_GPIO()
+    
+    motor = stepper("Test Motor")
+    
+>>>>>>>>> local version
