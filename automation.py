@@ -1,5 +1,5 @@
 import machine
-import logging, odoorpc, threading, time
+import logging, threading, time
 
 #setup logger
 _logger = logging.getLogger("Automation")
@@ -345,3 +345,14 @@ class Carrier(object):
         _logger.info("Added %s" % (self.carrier_history_id.name))
         pass
     
+from flask import Flask, render_template
+class web_service(MRP_Automation):
+    web_app = Flask(__name__)
+    def __init__(self, api, asset_id):
+        
+        web_app.run(debug=True, host='0.0.0.0', port=int("80"))
+        return super(web_service, self).__init__(api, asset_id)
+    
+    @web_app.route("/")
+    def index():
+        return render_template('hello world')
