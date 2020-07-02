@@ -232,7 +232,7 @@ class MRP_Automation(machine.Machine):
     #machine functions
     def get_blocking_status(self):
         #pull equipment blocking state
-        result = super(Machine, self).get_blocking_status()
+        result = super(MRP_Automation, self).get_blocking_status()
         # if not result:
         #     #if equipment not blocked, check work center blocking state
         #     if self.workcenter_id.working_state == 'blocked':
@@ -334,7 +334,7 @@ class MRP_Automation(machine.Machine):
     
     def quit(self):
         _logger.info("Machine Shutdown.")
-        return super(Machine, self).quit()    
+        return super(MRP_Automation, self).quit()    
         
         
 class Carrier(object):
