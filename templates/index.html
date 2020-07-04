@@ -1,17 +1,60 @@
 {% extends 'base.html' %}
 
 {% block head %}
-<title>Automation Machine</title>
+<title>{{ machine.equipment_id.display_name }}</title>
 {% endblock %}
 
-{% block header %}
-    <h1>Title</h1>
-{% endblock %}
-
-{% block left %}
-    
-{% endblock %}
-
-{% block right %}
-    
+{% block body %}
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-md-3">
+                <div name="machine_status">
+                    <script>
+                    $(document).ready(function(){
+                        setInterval(function(){ 
+                            fetch('machine_vars')
+                                .then(response => response.json())
+                                .then(data => {
+                                    document.getElementById("machine_run_status").checked = data['run_status'];
+                                    document.getElementById("machine_estop_status").checked = data['e_stop_status'];
+                                    document.getElementById("machine_busy").checked = data['busy'];
+                                    document.getElementById("machine_warn").checked = data['warn'];
+                                    })
+                                .catch((error) => {
+                                    console.error('Error:', error);
+                                    document.getElementById("machine_run_status").disabled = true;
+                                    document.getElementById("machine_estop_status").disabled = true;
+                                    document.getElementById("machine_busy").disabled = true;
+                                    document.getElementById("machine_warn").disabled = true;
+                                    });
+                              
+                        }, 10000);
+                    });
+                    </script>
+                    <table>
+                        <tr>
+                            <td>Machine Status</td>
+                            <td><input type="checkbox" id='machine_run_status'></td>
+                            <td>[button]</td>
+                        </tr>
+                        <tr>
+                            <td>E-STOP Status</td>
+                            <td><input type="checkbox" id='machine_estop_status'></td>
+                            <td>[button]</td>
+                        </tr>
+                        <tr>
+                            <td>Busy Status</td>
+                            <td><input type="checkbox" id='machine_busy'></td>
+                            <td>[button]</td>
+                        </tr>
+                        <tr>
+                            <td>Warning Status</td>
+                            <td><input type="checkbox" id='machine_warn'></td>
+                            <td>[button]</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
 {% endblock %}

@@ -1,10 +1,16 @@
 import automation, conveyor
 import logging, odoorpc, threading, time, argparse
 import digitalio, board #blinka libs
+from flask import Flask, render_template
+import json
 
 #setup logger
 logging.basicConfig(format="%(asctime)s %(levelname)s %(name)s - %(message)s",datefmt='%m/%d/%Y %I:%M:%S %p',level=logging.INFO)
 _logger = logging.getLogger("Test Machine")
+
+#setup flask
+app = Flask(__name__)
+test_machine = False
 
 class TestMachine(automation.MRP_Automation):
     
@@ -183,8 +189,7 @@ class MRP_Carrier_Lane_1(automation.MRP_Carrier_Lane):
         super(MRP_Carrier_Lane_1, self).__init__(api, mrp_automation_machine)
         self._logger = logging.getLogger("Carrier Lane 1")
         pass
-    
-    
+
 class Conveyor_1(conveyor.Conveyor):
     def __init__(self):
         super(Conveyor_1, self).__init__()
@@ -208,10 +213,31 @@ class Conveyor_1(conveyor.Conveyor):
         _logger.info("Setting Diverter from Bypass to Bypass")
         pass
 
-
-
-
-
+@app.route("/")
+def index():
+   
+    return render_template('index.html', machine=test_machine)
+        
+@app.route("/machine_vars")
+def machine_vars():
+    var={}
+    var['run_status'] = test_machine.run_status
+    var['e_stop_status'] = test_machine.e_stop_status
+    var['busy'] = test_machine.busy
+    var['warn'] = test_machine.warn
+    return json.dumps(var)
+    
+@app.route("/route_node")
+def route_node():
+    var={}
+    var['route_lanes'] = test_machine.route_lanes
+    var['route_node_id'] = {}
+    if test_machine.route_node_id:
+        var['route_node_id']['id'] = test_machine.route_node_id.id
+        var['route_node_id']['name'] = test_machine.route_node_id.name
+        
+    return json.dumps(var)
+    
 #startup this machine
 if __name__ == "__main__":
     
@@ -224,7 +250,6 @@ if __name__ == "__main__":
     
     #create instance of odooRPC clinet with these settings
     odoo = odoorpc.ODOO(server, port=port)
-    
     #attempt a login to odoo server to init the api
     try:
         odoo.login(database, user_id, password)
@@ -238,5 +263,7 @@ if __name__ == "__main__":
     #create instance of this test machine, and start its engine
     test_machine = TestMachine(api=odoo, asset_id=args.equipment_id)
     
-    while True:
-        time.sleep(1000)
+    #launch web service
+    app.run(debug=True, host='0.0.0.0', port=int("5000"))
+    pass
+

@@ -1,5 +1,5 @@
 import machine
-import logging, odoorpc, threading, time
+import logging, threading, time
 
 #setup logger
 _logger = logging.getLogger("Automation")
@@ -398,3 +398,4 @@ class Carrier_Handler(StreamHandler):
             pass
 
         pass
+
