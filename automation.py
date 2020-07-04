@@ -18,7 +18,7 @@ class MRP_Automation(machine.Machine):
         self.route_node_thread = threading.Thread(target=self.update_route_node_loop, daemon=True)
         self.route_node_thread.start()
         self.route_lanes = []
-
+        
         #internal vars
         self.run_status = False
         self.e_stop_status = False
