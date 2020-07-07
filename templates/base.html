@@ -29,7 +29,7 @@
               <a class="dropdown-item">
                   <input type="checkbox" class="form-check-input" style="white-space: nowrap" href="#" id="{{ workorder.id }}"></input>
                   <label class="form-check-label" for="defaultCheck1">
-                    {{ workorder.name }}
+                    {{ workorder.production_id.display_name }}
                   </label>
               </a>
               {% endfor %}
