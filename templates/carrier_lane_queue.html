@@ -1,0 +1,9 @@
+{% for carrier in carrier_lane.route_node_carrier_queue %}
+    <div class="row">
+        <div class="col-md-1">{{ carrier_lane.carrier_history_cache[carrier].carrier_history_id.barcode }}</div>
+        <div class="col-md-6">{{ carrier_lane.carrier_history_cache[carrier].carrier_history_id.ref_model.display_name }}</div>
+        <div class="col-md-1">{{ carrier_lane.carrier_history_cache[carrier].carrier_history_id.status }}</div>
+        <div class="col-md-3">{{ carrier_lane.carrier_history_cache[carrier].carrier_history_id.workcenter_dest_id.name }}</div>
+        
+    </div>
+{% endfor %}

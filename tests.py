@@ -1,20 +1,12 @@
 import automation, conveyor
 import logging, odoorpc, threading, time, argparse
 import digitalio, board #blinka libs
-<<<<<<< HEAD
-import json
-from flask import Flask, render_template
-=======
 from flask import Flask, render_template
 import json
 
->>>>>>> d5f749dfa1146570b30185c8f86476cf0aac4e2b
 #setup logger
 logging.basicConfig(format="%(asctime)s %(levelname)s %(name)s - %(message)s",datefmt='%m/%d/%Y %I:%M:%S %p',level=logging.INFO)
 _logger = logging.getLogger("Test Machine")
-#setup flask
-app = Flask(__name__)
-test_machine = False
 
 #setup flask
 app = Flask(__name__)
@@ -221,48 +213,13 @@ class Conveyor_1(conveyor.Conveyor):
         _logger.info("Setting Diverter from Bypass to Bypass")
         pass
 
-<<<<<<< HEAD
-#startup this machine
-if __name__ == "__main__":
-    
-    #odoo api settings, TODO: move these to a server_config file
-    server = "esg-beta.idreamoferp.com"
-    port = 80
-    database = "ESG_Beta_1-0"
-    user_id = "equipment_072"
-    password = "1q2w3e4r"
-    
-    #create instance of odooRPC clinet with these settings
-    odoo = odoorpc.ODOO(server, port=port)
-    #attempt a login to odoo server to init the api
-    try:
-        odoo.login(database, user_id, password)
-    except Exception as e:
-        _logger.error("Error logging in to odoo server",e)
 
-    
-    parser = argparse.ArgumentParser(description='')
-    parser.add_argument('--equipment-id', type=int, help='ODOO Maintence Equipment ID')
-    args = parser.parse_args()
-    
-    #create instance of this test machine, and start its engine
-    test_machine = TestMachine(api=odoo, asset_id=args.equipment_id)
-    
-    #start webserver
-    app.run(debug=True, host='0.0.0.0', port=int("5000"))
-    
-    #while True:
-    #    time.sleep(1000)
-    exit(0)
-
-=======
->>>>>>> d5f749dfa1146570b30185c8f86476cf0aac4e2b
 @app.route("/")
 def index():
    
     return render_template('index.html', machine=test_machine)
         
-@app.route("/machine_vars")
+@app.route("/machine_vars/")
 def machine_vars():
     var={}
     var['run_status'] = test_machine.run_status
@@ -271,7 +228,7 @@ def machine_vars():
     var['warn'] = test_machine.warn
     return json.dumps(var)
     
-@app.route("/route_node")
+@app.route("/route_node/")
 def route_node():
     var={}
     var['route_lanes'] = test_machine.route_lanes
@@ -280,11 +237,11 @@ def route_node():
         var['route_node_id']['id'] = test_machine.route_node_id.id
         var['route_node_id']['name'] = test_machine.route_node_id.name
         
-<<<<<<< HEAD
-    return json.dumps(var)
-=======
     return json.dumps(var)
     
+@app.route("/carrier_queue/<lane_index>")
+def carrier_queue(lane_index):
+    return render_template("carrier_lane_queue.html", carrier_lane=test_machine.route_lanes[int(lane_index)] )
 #startup this machine
 if __name__ == "__main__":
     
@@ -312,6 +269,7 @@ if __name__ == "__main__":
     
     #launch web service
     app.run(debug=True, host='0.0.0.0', port=int("5000"))
+    
+    test_machine.button_start()
     pass
 
->>>>>>> d5f749dfa1146570b30185c8f86476cf0aac4e2b

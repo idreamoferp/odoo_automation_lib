@@ -56,5 +56,52 @@
                 </div>
             </div>
         </div>
+        <div class="row">
+        {% for carrier_lane in machine.route_lanes%}
+            <div CLASS="col-md-6">
+                <div class="col-md-12">
+                    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+                      <a class="navbar-brand" href="#">{{ carrier_lane._logger.name }} [{{ carrier_lane.route_node_lane.type }}] Max({{ carrier_lane.route_node_lane.max_carrier }})</a>
+                      <ul class="navbar-nav mr-auto">
+                          <li class="nav-item">
+                            <a class="nav-link disabled" href="#" id=>Busy</a>
+                          </li>
+                          
+                          <li class="nav-item">
+                            <a class="nav-link disabled warn" href="#" id=>Warning</a>
+                          </li>
+                      </ul>
+                    </nav>
+                </div>
+                <script>
+                    $(document).ready(function(){
+                        setInterval(function(){ 
+                            fetch('carrier_queue/{{ carrier_lane.route_node_lane.sequence}}')
+                                .then(response => response.text())
+                                .then(data => {
+                                    document.getElementById("carrier_lane_queue_{{ carrier_lane.route_node_lane.sequence}}").innerHTML = data;
+                                    
+                                    })
+                                .catch((error) => {
+                                    console.error('Error:', error);
+                                    });
+                              
+                        }, 10000);
+                    });
+                    </script>
+                <div class="row">
+                    <div class="col-md-1">BarCode</div>
+                    <div class="col-md-6">Traveler</div>
+                    <div class="col-md-1">Status</div>
+                    <div class="col-md-3">Destination</div>
+        
+                </div>
+                <div class="col-md-12" id="carrier_lane_queue_{{ carrier_lane.route_node_lane.sequence}}">
+                    
+                </div>
+           </div>
+            
+        {% endfor %}
+        </div>
     </div>
 {% endblock %}
