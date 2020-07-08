@@ -11,16 +11,88 @@
 </head>
 <body>
     <nav class="navbar navbar-expand-lg navbar-light bg-light">
-      <a class="navbar-brand" href="#">{{ machine.equipment_id.display_name }}</a>
-      <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
-        <span class="navbar-toggler-icon"></span>
-      </button>
-    
+      <script>
+      $(document).ready(function(){
+          var element_status = document.getElementById("machine_run_status");
+          var element_e_stop = document.getElementById("machine_estop_status");
+          var element_warn = document.getElementById("machine_warn");
+          var element_busy = document.getElementById("machine_busy");
+          setInterval(update_machine_vars, 10000);
+          function update_machine_vars(){
+              fetch('machine_vars')
+                  .then(response => response.json())
+                  .then(data => {
+                      
+                      element_status.disabled = false;
+                      element_e_stop.disabled = false;
+        
+                      if (data['run_status']){
+                        element_status.classList.remove("btn-danger");
+                        element_status.classList.add("btn-outline-success");
+                        element_status.innerHTML = 'Running';
+                      }else{
+                        element_status.classList.add("btn-danger");
+                        element_status.classList.remove("btn-outline-success");
+                        element_status.innerHTML = 'Stopped';
+                      }
+                      
+                      if (data['e_stop_status']){
+                        element_e_stop.classList.remove("btn-outline-danger");
+                        element_e_stop.classList.add("btn-danger");
+                        element_status.disabled = true;
+                      }else{
+                        element_e_stop.classList.add("btn-outline-danger");
+                        element_e_stop.classList.remove("btn-danger");
+                        element_status.disabled = false;
+                      }
+                      
+                      if (data['busy']){
+                        element_busy.classList.remove("btn-outline-info");
+                        element_busy.classList.add("btn-info");
+                      }else{
+                        element_busy.classList.add("btn-outline-info");
+                        element_busy.classList.remove("btn-info");
+                      }
+                      
+                      if (data['warn']){
+                        element_warn.classList.remove("btn-outline-warning");
+                        element_warn.classList.add("btn-warning");
+                      }else{
+                        element_warn.classList.add("btn-outline-warning");
+                        element_warn.classList.remove("btn-warning");
+                      }
+                      
+                      })
+                  .catch((error) => {
+                      console.error('Error:', error);
+                      element_status.disabled = true;
+                      element_status.innerHTML = '...';
+                      element_status.classList.remove("btn-danger");
+                      element_status.classList.remove("btn-outline-success");
+                      
+                      element_e_stop.disabled = true;
+                      element_e_stop.innerHTML = '...';
+                      element_e_stop.classList.remove("btn-danger");
+                      element_e_stop.classList.remove("btn-outline-danger");
+                      
+                      });
+                
+          }
+          
+          update_machine_vars();
+      });
+      </script>
       <div class="collapse navbar-collapse" id="navbarSupportedContent">
         <ul class="navbar-nav mr-auto">
-          <li class="nav-item active">
-            <a class="nav-link" href="#">Home <span class="sr-only">(current)</span></a>
-          </li>
+          
+          
+          <button class="btn btn-outline-success my-2 my-sm-0" type="submit" id='machine_run_status'>...</button>
+          <button class="btn btn-outline-danger my-2 my-sm-0" type="submit" id='machine_estop_status'>E-STOP</button>
+          <button class="btn btn-outline-warning my-2 my-sm-0" disabled type="submit" id='machine_warn'>Warning</button>
+          <button class="btn my-2 my-sm-0" disabled type="submit" id='machine_busy'>Busy</button>
+          
+          
+          
           
           <li class="nav-item dropdown">
             <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Work Orders</a>
@@ -47,15 +119,7 @@
             </div>
           </li>
           
-          <li class="nav-item">
-            <a class="nav-link disabled" href="#">Disabled</a>
-          </li>
-        </ul>
-        
-        <form class="form-inline my-2 my-lg-0">
-          <input class="form-control mr-sm-2" type="search" placeholder="Search" aria-label="Search">
-          <button class="btn btn-outline-success my-2 my-sm-0" type="submit">Search</button>
-        </form>
+
       </div>
     </nav>
 
