@@ -1,45 +1,39 @@
-import automation, conveyor
+import automation, conveyor, automation_web
 import logging, odoorpc, threading, time, argparse
 import digitalio, board #blinka libs
-from flask import Flask, render_template
-import json
 
 #setup logger
 logging.basicConfig(format="%(asctime)s %(levelname)s %(name)s - %(message)s",datefmt='%m/%d/%Y %I:%M:%S %p',level=logging.INFO)
 _logger = logging.getLogger("Test Machine")
 
-#setup flask
-app = Flask(__name__)
-test_machine = False
-
-class TestMachine(automation.MRP_Automation):
+class TestMachine(automation.MRP_Automation, automation_web.Automation_Webservice):
     
     def __init__(self, api, asset_id):
         #init conveyor for this machine
         self.conveyor_1 = Conveyor_1()
         
         #setup button pins
-        self.button_start_input = digitalio.DigitalInOut(board.P9_12)
+        self.button_start_input = digitalio.DigitalInOut(board.D5)
         self.button_start_input.direction = digitalio.Direction.INPUT
         self.button_start_input.pull = digitalio.Pull.UP
         
-        self.button_stop_input = digitalio.DigitalInOut(board.P9_11)
+        self.button_stop_input = digitalio.DigitalInOut(board.D6)
         self.button_stop_input.direction = digitalio.Direction.INPUT
         self.button_stop_input.pull = digitalio.Pull.UP
         
-        self.button_estop_input = digitalio.DigitalInOut(board.P9_15)
+        self.button_estop_input = digitalio.DigitalInOut(board.D4)
         self.button_estop_input.direction = digitalio.Direction.INPUT
         self.button_estop_input.pull = digitalio.Pull.UP
         
-        self.button_start_led = digitalio.DigitalInOut(board.P9_14)
+        self.button_start_led = digitalio.DigitalInOut(board.D17)
         self.button_start_led.direction = digitalio.Direction.OUTPUT
         self.button_start_led.value = True
         
-        self.button_warn_led = digitalio.DigitalInOut(board.P9_13)
+        self.button_warn_led = digitalio.DigitalInOut(board.D27)
         self.button_warn_led.direction = digitalio.Direction.OUTPUT
         self.button_warn_led.value = True
         
-        self.button_estop_led = digitalio.DigitalInOut(board.P9_16)
+        self.button_estop_led = digitalio.DigitalInOut(board.D22)
         self.button_estop_led.direction = digitalio.Direction.OUTPUT
         self.button_estop_led.value = True
         
@@ -106,19 +100,19 @@ class MRP_Carrier_Lane_0(automation.MRP_Carrier_Lane):
         self._logger = logging.getLogger("Carrier Lane 0")
         
         self._logger.info("Setup GPIO Pins")
-        self.input_ingress = digitalio.DigitalInOut(board.P9_17)
+        self.input_ingress = digitalio.DigitalInOut(board.D8)
         self.input_ingress.direction = digitalio.Direction.INPUT
         self.input_ingress.pull = digitalio.Pull.UP
         
-        self.ingress_end_stop = digitalio.DigitalInOut(board.P9_21)
+        self.ingress_end_stop = digitalio.DigitalInOut(board.D11)
         self.ingress_end_stop.direction = digitalio.Direction.INPUT
         self.ingress_end_stop.pull = digitalio.Pull.UP
         
-        self.output_ingress_gate = digitalio.DigitalInOut(board.P9_18)
+        self.output_ingress_gate = digitalio.DigitalInOut(board.D23)
         self.output_ingress_gate.direction = digitalio.Direction.OUTPUT
         self.output_ingress_gate.value = True
         
-        self.output_carrier_capture = digitalio.DigitalInOut(board.P9_22)
+        self.output_carrier_capture = digitalio.DigitalInOut(board.D10)
         self.output_carrier_capture.direction = digitalio.Direction.OUTPUT
         self.output_carrier_capture.value = True
         pass
@@ -213,35 +207,6 @@ class Conveyor_1(conveyor.Conveyor):
         _logger.info("Setting Diverter from Bypass to Bypass")
         pass
 
-
-@app.route("/")
-def index():
-   
-    return render_template('index.html', machine=test_machine)
-        
-@app.route("/machine_vars/")
-def machine_vars():
-    var={}
-    var['run_status'] = test_machine.run_status
-    var['e_stop_status'] = test_machine.e_stop_status
-    var['busy'] = test_machine.busy
-    var['warn'] = test_machine.warn
-    return json.dumps(var)
-    
-@app.route("/route_node/")
-def route_node():
-    var={}
-    var['route_lanes'] = test_machine.route_lanes
-    var['route_node_id'] = {}
-    if test_machine.route_node_id:
-        var['route_node_id']['id'] = test_machine.route_node_id.id
-        var['route_node_id']['name'] = test_machine.route_node_id.name
-        
-    return json.dumps(var)
-    
-@app.route("/carrier_queue/<lane_index>")
-def carrier_queue(lane_index):
-    return render_template("carrier_lane_queue.html", carrier_lane=test_machine.route_lanes[int(lane_index)] )
 #startup this machine
 if __name__ == "__main__":
     
@@ -258,7 +223,7 @@ if __name__ == "__main__":
     try:
         odoo.login(database, user_id, password)
     except Exception as e:
-        _logger.error("Error logging in to odoo server",e)
+        _logger.error("Error logging in to odoo server" + e)
     
     parser = argparse.ArgumentParser(description='')
     parser.add_argument('--equipment-id', type=int, help='ODOO Maintence Equipment ID')
@@ -268,8 +233,11 @@ if __name__ == "__main__":
     test_machine = TestMachine(api=odoo, asset_id=args.equipment_id)
     
     #launch web service
-    app.run(debug=True, host='0.0.0.0', port=int("5000"))
+    test_machine.start_webservice()
     
-    test_machine.button_start()
+    #test_machine.button_start()
+    
+    while True:
+        time.sleep(100)
     pass
 
