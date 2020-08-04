@@ -1,12 +1,14 @@
 import machine
 import logging
-_logger = logging.getLogger(__name__)
+
+
 class Conveyor(object):
     def __init__(self):
+        self._logger = logging.getLogger(__name__)
         self.current_ipm = 0
         self.run_status = False
         self.e_stop_status = False
-        _logger.info("INIT Compleete.")
+        self._logger.info("INIT Compleete.")
         pass
     
     def e_stop(self):
@@ -18,7 +20,7 @@ class Conveyor(object):
             #abruptly shutdown the main loop thread.
             #in the main machine config, setup all the i/o to render safe the machine.
             #self.main_machine_thread.stop()
-            _logger.warn("Conveyor has entered the E-STOP state.")
+            self._logger.warn("Conveyor has entered the E-STOP state.")
         pass
     
     def e_stop_reset(self):
@@ -28,11 +30,13 @@ class Conveyor(object):
             
             #re-boot the main loop thread
             #self.main_machine_thread.start()
-            _logger.warn("Conveyor has reset the E-STOP state.")
+            self._logger.warn("Conveyor has reset the E-STOP state.")
         pass
     
 class Diverter(object):
     def __init__(self):
+        self._logger = logging.getLogger(__name__)
+        
         self.busy = False
         
         #dict of lanes this diverter is connected to for status polling
@@ -43,7 +47,7 @@ class Diverter(object):
         #{'work':{'work': method_to_call,'bypass':method_to_call},}
         self.lane_diverter = {}
         self.conveyor = None
-        _logger.info("INIT Compleete.")
+        self._logger.info("INIT Compleete.")
         pass
     
     def divert(self, current_lane, destination_lane):
