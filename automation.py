@@ -33,7 +33,7 @@ class MRP_Automation(machine.Machine):
         self.indicator_warn_thread = threading.Thread(target=self.indicator_warn_loop, daemon=True)
         self.indicator_warn_thread.start()
 
-        _logger.info("Machine INIT Compleete.")
+        _logger.info("MRP Automation INIT Complete.")
         return
 
     #odoo carrer route methods
@@ -185,9 +185,6 @@ class MRP_Automation(machine.Machine):
 
 class MRP_Carrier_Lane(object):
     def __init__(self, api, mrp_automation_machine):
-        self._logger = logging.getLogger("Carrier Lane")
-        self._logger.info("Initialize Lane")
-
         #upper level machine vars
         self.api = api
         self.mrp_automation_machine = mrp_automation_machine
@@ -209,6 +206,8 @@ class MRP_Carrier_Lane(object):
         #main worker thread
         self.main_machine_thread = threading.Thread(target=self.main_machine_loop, daemon=True)
         self.main_machine_thread.start()
+        
+        _logger.info("MRP Automation Lane INIT Complete.")
         pass
 
     #upper level machine vars
