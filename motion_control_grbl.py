@@ -12,14 +12,7 @@ class GRBL4(mc.MotonControl):
         self.comm_lock = threading.Lock()
         
         self.grbl_version = False
-        self.status = False
-        self.coordinate_system = False
-        self.position_x = 0.0
-        self.position_y = 0.0
-        self.position_z = 0.0
-        self.work_offset_x = 0.0
-        self.work_offset_y = 0.0
-        self.work_offset_z = 0.0
+        
         self.actual_feedrate = 0.0
         self.actual_spindle = 0.0
         self.override_feed = 100
@@ -147,14 +140,6 @@ class GRBL4(mc.MotonControl):
             res = self.comm.readline().decode('utf-8').replace('\r\n',"")
                
         return res
-        
-    def goto_position_abs(self,x=False,y=False,z=False,a=False,b=False,feed=False):
-        self.send_command('G90')
-        return super(GRBL4, self).goto_position_abs(x,y,z,a,b,feed)
-   
-    def goto_position_rel(self,x=False,y=False,z=False,a=False,b=False,feed=False):
-        self.send_command('G91')
-        return super(GRBL4, self).goto_position_rel(x,y,z,a,b,feed)
        
     def _goto_position(self,x=False,y=False,z=False,a=False,b=False,feed=False):
         
@@ -171,18 +156,10 @@ class GRBL4(mc.MotonControl):
             
         result = self.send_command(command)
         
-        
         return super(GRBL4, self)._goto_position(x,y,z,a,b,feed)
-    
-    def work_offset(self,x=0,y=0,z=0,a=0,b=0):
-        command = "G92 X%s Y%s Z%s" % (x,y,z)
-        result = self.send_command(command)
-        
-        return super(GRBL4, self).work_offset(x,y,z,a,b)
         
     def home(self):
         self.send_command("$H")
-        self.send_command("G10p1l20z0x0y0")
         pass
 error_messages = {
     "1": "G-code words consist of a letter and a value. Letter was not found.", 
