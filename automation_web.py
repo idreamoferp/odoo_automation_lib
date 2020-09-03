@@ -9,7 +9,11 @@ class Automation_Webservice(object):
         app.add_url_rule('/machine_vars/', 'machine vars', view_func=self.machine_vars)
         app.add_url_rule('/carrier_queue/<lane_index>', 'carrier queue', view_func=self.carrier_queue)
 
+<<<<<<< HEAD
         app.run(debug=True, host='0.0.0.0', port=int("5000"))
+=======
+        app.run(host='0.0.0.0', port=int("5000"))
+>>>>>>> master
         pass
 
     def index(self):

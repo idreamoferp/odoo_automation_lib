@@ -45,7 +45,11 @@ class Conveyor(object):
     
     def stop(self):
         self.run_status = False
+<<<<<<< HEAD
         self.last_tack_tick = 0
+=======
+        self.last_tach_tick = 0
+>>>>>>> master
         pass
     
     def e_stop(self):
