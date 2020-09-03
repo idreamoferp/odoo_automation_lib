@@ -5,6 +5,7 @@ from adafruit_mcp230xx.mcp23017 import MCP23017
 i2c = busio.I2C(board.SCL, board.SDA)
 mcp20 = MCP23017(i2c, address=0x20)
 #mcp21 = MCP23017(i2c, address=0x21)
+import motion_control_grbl as motion_control
 
 #setup logger
 logging.basicConfig(format="%(asctime)s %(levelname)s %(name)s - %(message)s",datefmt='%m/%d/%Y %I:%M:%S %p',level=logging.INFO)
@@ -13,6 +14,8 @@ _logger = logging.getLogger("Test Machine")
 class TestMachine(automation_web.Automation_Webservice, automation.MRP_Automation):
     
     def __init__(self, api, asset_id):
+        
+        
         #init conveyor for this machine
         self.conveyor_1 = Conveyor_1()
         self.conveyor_1.set_ipm = 10
@@ -48,6 +51,9 @@ class TestMachine(automation_web.Automation_Webservice, automation.MRP_Automatio
         
         self.route_lanes = [MRP_Carrier_Lane_0(self.api, self), MRP_Carrier_Lane_1(self.api, self)]
         
+        self.motion_control = motion_control.MotonControl('/dev/serial0')
+        self.motion_control.home()
+        self.goto_default_location()
         
         _logger.info("Machine INIT Compleete.")
         self.start_webservice()
@@ -88,7 +94,7 @@ class TestMachine(automation_web.Automation_Webservice, automation.MRP_Automatio
         return super(TestMachine, self).button_start()
     
     def button_stop(self):
-        #self.conveyor_1.stop()
+        self.conveyor_1.stop()
         return super(TestMachine, self).button_stop()
     
     def e_stop(self):
@@ -105,15 +111,20 @@ class TestMachine(automation_web.Automation_Webservice, automation.MRP_Automatio
         #set indicators to safe off state.
         self.indicator_start(False)
         self.indicator_warn(False)
+        
+        #send quit signals to sub components
         self.conveyor_1.quit()
         return super(TestMachine, self).quit()  
+        
+    #motion and machine controls
+    def goto_default_location(self):
+        self.motion_control.goto_position_abs(y=325,z=0.0,feed=6000)
+    
         
 class MRP_Carrier_Lane_0(automation.MRP_Carrier_Lane):
     def __init__(self, api, mrp_automation_machine):
         self._logger = logging.getLogger("Carrier Lane 0")
         super(MRP_Carrier_Lane_0, self).__init__(api, mrp_automation_machine)
-        
-        
         
         self.input_ingress = mcp20.get_pin(8)
         self.input_ingress.direction = digitalio.Direction.INPUT
@@ -123,16 +134,21 @@ class MRP_Carrier_Lane_0(automation.MRP_Carrier_Lane):
         self.ingress_end_stop.direction = digitalio.Direction.INPUT
         self.ingress_end_stop.pull = digitalio.Pull.UP
         
-        self.output_ingress_gate = mcp20.get_pin(15)
+        self.output_ingress_gate = mcp20.get_pin(7)
         self.output_ingress_gate.direction = digitalio.Direction.OUTPUT
         self.output_ingress_gate.value = False
         
-        self.output_carrier_capture = mcp20.get_pin(14)
+        self.output_carrier_capture = mcp20.get_pin(6)
         self.output_carrier_capture.direction = digitalio.Direction.OUTPUT
         self.output_carrier_capture.value = False
         
         self._logger.info("Lane INIT Complete")
         pass
+    
+    def goto_position_abs(self, y=0,z=0,a=0, feed=0):
+        return self.mrp_automation_machine.motion_control.goto_position_abs(x=a,y=y,z=z,feed=3000)
+    def goto_position_rel(self, y=0,z=0,a=0,feed=0):
+        return self.mrp_automation_machine.motion_control.goto_position_rel(x=a,y=y,z=z,feed=3000)
     
     #main loop functions
     def preflight_checks(self):
@@ -152,10 +168,16 @@ class MRP_Carrier_Lane_0(automation.MRP_Carrier_Lane):
         self.output_ingress_gate.value = True
         self._logger.info("Machine opened ingress gate, waiting for product to trigger end stop")
         
+        #positioning machine to lane zero
+        self.mrp_automation_machine.motion_control.work_offset(y=550)
+        self.goto_position_abs(0,0,0,feed=5000)
+        
         #wait for ingress end stop trigger
         time_out = time.time()
         while self.ingress_end_stop.value:
             if time_out + 60 < time.time():
+                self.output_ingress_gate.value = True
+                self.warn = True
                 self._logger.warn("Timeout waiting for ingress end stop trigger")
                 return False
             #throttle wait peroid.
@@ -165,15 +187,20 @@ class MRP_Carrier_Lane_0(automation.MRP_Carrier_Lane):
         self.output_ingress_gate.value = False
         self.output_carrier_capture.value = True
         
-        self._logger.info("Rotate the product until the carrier home is triggered")
-        time.sleep(3)
-        
-        
+        self.mrp_automation_machine.motion_control.wait_for_movement()
         
         return True
         
     def process_egress(self):
         self._logger.info("Machine opening egress gate, waiting to clear end stop trigger.")
+        
+        #put the machine in a safe location
+        self.goto_position_abs(z=0,feed=8000)
+        
+        time.sleep(1)
+        self.mrp_automation_machine.motion_control.wait_for_movement()
+        #set the machine offsets back to machine cord.
+        self.mrp_automation_machine.motion_control.work_offset(y=0)
         
         #configure diverter for the destination
         destination_lane = self.currernt_carrier.carrier_history_id.route_node_lane_dest_id
@@ -193,6 +220,14 @@ class MRP_Carrier_Lane_0(automation.MRP_Carrier_Lane):
         
         #free the diverter for other operations
         self.mrp_automation_machine.conveyor_1.diverter.clear_divert()
+        self.mrp_automation_machine.goto_default_location()
+        return True
+        
+    def quit(self):
+        super(MRP_Carrier_Lane_0, self).quit()
+            
+        self.output_ingress_gate.value=0
+        self.output_carrier_capture.value=0
         return True
     
 class MRP_Carrier_Lane_1(automation.MRP_Carrier_Lane):
@@ -224,7 +259,7 @@ class Conveyor_1(conveyor.Conveyor):
         self.motor_duty = 40
         
         #setup diverter logic
-        self.diverter = conveyor.Diverter("Conveyor_1_Diverter")
+        self.diverter = divert_1("Conveyor_1_Diverter")
         self.diverter.lane_diverter = {'work':{'work':self.diverter_work_work,'bypass':self.diverter_work_bypass},'bypass':{'work':self.diverter_bypass_work,'bypass':self.diverter_bypass_bypass}}
         pass
     
@@ -260,6 +295,7 @@ class Conveyor_1(conveyor.Conveyor):
         if pulse_len > 0.8:
             self.last_tach_tick = new_tick
             self.current_ipm = round(pulse_len * self.inch_per_rpm, 1)
+            self._logger.debug("Current IPM - %s" %(self.current_ipm))
             return super(Conveyor_1, self).tach_tick()
 
     def diverter_work_work(self):
@@ -282,19 +318,26 @@ class Conveyor_1(conveyor.Conveyor):
         self.stop()
         self.motor_p.stop()
         return super(Conveyor_1, self).quit()  
+        
+class divert_1(conveyor.Diverter):
+    def clear_divert(self):
+        time.sleep(5)
+        return super(divert_1, self).clear_divert()
+    
 
 #startup this machine
 if __name__ == "__main__":
     
     #odoo api settings, TODO: move these to a server_config file
-    server = "usboiepxd01"
-    port = 8069
-    database = "ESG_Beta_0-1"
+    server = "esg-beta.idreamoferp.com" #"usboiepxd01" 
+    port = 80
+    database = "ESG_Beta_1-0"
     user_id = "equipment_072"
     password = "1q2w3e4r"
     
     #create instance of odooRPC clinet with these settings
     odoo = odoorpc.ODOO(server, port=port)
+    
     #attempt a login to odoo server to init the api
     try:
         odoo.login(database, user_id, password)
@@ -308,9 +351,6 @@ if __name__ == "__main__":
     #create instance of this test machine, and start its engine
     test_machine = TestMachine(api=odoo, asset_id=args.equipment_id)
 
-    
-    #test_machine.button_start()
-    
     while True:
         time.sleep(100)
     pass
