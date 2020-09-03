@@ -10,6 +10,33 @@ class Conveyor(object):
         self.e_stop_status = False
         self._logger.info("INIT Compleete.")
         pass
+        
+    @property
+    def set_ipm(self):
+        return self.pid_controller.setpoint
+    
+    @set_ipm.setter
+    def set_ipm(self, value):
+        self.pid_controller.setpoint = value
+        pass    
+        
+    def get_config(self):
+        config = configparser.ConfigParser()
+        config[self.name] = {}
+        config[self.name]['set_ipm'] = self.set_ipm
+        config[self.name]['pid_p'] = self.pid_p
+        config[self.name]['pid_i'] = self.pid_i
+        config[self.name]['pid_d'] = self.pid_d
+        return config
+    
+    def start(self):
+        self.run_status = True
+        pass
+    
+    def stop(self):
+        self.run_status = False
+        self.last_tach_tick = 0
+        pass
     
     def e_stop(self):
         #this will loop constantly while the e-stop is depressed.
