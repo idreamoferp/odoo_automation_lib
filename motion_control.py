@@ -1,5 +1,4 @@
 
-
 class MotonControl(object):
     def __init__(self):
         self.status = False
@@ -45,5 +44,5 @@ class MotonControl(object):
     def goto_position_abs(self,x=False,y=False,z=False,a=False,b=False,feed=False):
         self._goto_position(x+self.work_offset_x, y+self.work_offset_y, z+self.work_offset_z, a+self.work_offset_a, b+self.work_offset_b, feed)
         pass
-    
+
     
