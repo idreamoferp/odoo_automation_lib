@@ -1,11 +1,12 @@
 import automation, conveyor, automation_web
-import logging, odoorpc, threading, time, argparse
+import logging, odoorpc, threading, time, argparse, configparser
 import digitalio, board, busio #blinka libs
+import motion_control_grbl as motion_control
 from adafruit_mcp230xx.mcp23017 import MCP23017
 i2c = busio.I2C(board.SCL, board.SDA)
 mcp20 = MCP23017(i2c, address=0x20)
 #mcp21 = MCP23017(i2c, address=0x21)
-import motion_control_grbl as motion_control
+
 
 #setup logger
 logging.basicConfig(format="%(asctime)s %(levelname)s %(name)s - %(message)s",datefmt='%m/%d/%Y %I:%M:%S %p',level=logging.INFO)
