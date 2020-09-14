@@ -145,7 +145,7 @@ class conv_1(Conveyor):
         
         GPIO.setmode(GPIO.BCM)  
         GPIO.setup(23, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-        GPIO.add_event_detect(23, GPIO.RISING, callback=self.tack_tick)
+        GPIO.add_event_detect(23, GPIO.FALLING, callback=self.tach_tick)
         
         GPIO.setup(12,GPIO.OUT)
         self.motor_p = GPIO.PWM(12,5000)
@@ -160,7 +160,7 @@ class conv_1(Conveyor):
             
         if duty < 0:
             duty = 0
-        print("duty = %s" % duty)
+        # print("duty = %s" % duty)
         
         self.motor_p.ChangeDutyCycle(duty)
         self.motor_duty = duty
@@ -175,19 +175,19 @@ class conv_1(Conveyor):
         self.motor_p.stop()
         return super(conv_1, self).stop()
     
-    def tack_tick(self, ch):
+    def tach_tick(self, ch):
         new_tick = time.time()
-        if self.last_tack_tick == 0:
-            self.last_tack_tick = new_tick
+        if self.last_tach_tick == 0:
+            self.last_tach_tick = new_tick
             return
         
-        pulse_len = new_tick - self.last_tack_tick
-        if pulse_len > 0.8:
-            self.last_tack_tick = new_tick
-            self.current_ipm = round(pulse_len * self.inch_per_rpm, 1)
-            print("cipm = %s" % self.current_ipm)
-        
-            return super(conv_1, self).tach_tick()
+        pulse_len = new_tick - self.last_tach_tick
+        # if pulse_len > 0.8:
+        self.last_tach_tick = new_tick
+        self.current_ipm = round(pulse_len * self.inch_per_rpm, 5)
+        print("cipm = %s" % self.current_ipm)
+    
+        return super(conv_1, self).tach_tick()
 
 if __name__ == "__main__":
     c = conv_1()

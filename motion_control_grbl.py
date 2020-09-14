@@ -116,9 +116,9 @@ class MotonControl(mc.MotonControl):
                 this = status.split(":")
                 if this[0] == "MPos":
                     xyz = this[1].split(",")
-                    self.mach_position_x = xyz[0]
-                    self.mach_position_y = xyz[1]
-                    self.mach_position_z = xyz[2]
+                    self.mach_position_x = float(xyz[0])
+                    self.mach_position_y = float(xyz[1])
+                    self.mach_position_z = float(xyz[2])
                     continue
                     
                 if this[0] == "WCO":
@@ -172,9 +172,7 @@ class MotonControl(mc.MotonControl):
         return res
        
     def _goto_position(self,x=False,y=False,z=False,a=False,b=False,feed=False):
-        
-        command = "G01 "
-        
+        command = ""
         if not isinstance(x, bool):
             command += "X%s " % x
         if not isinstance(y, bool):
@@ -182,7 +180,10 @@ class MotonControl(mc.MotonControl):
         if not isinstance(z, bool):
             command += "Z%s " % z
         if not isinstance(feed, bool):
+            command = "G01" + command
             command += "F%s " % feed
+        else:
+            command = "G0" + command
             
         result = self.send_command(command)
             
@@ -200,10 +201,11 @@ class MotonControl(mc.MotonControl):
         if x+y+z+a+b == 0:
             #set work offset to machine home 
             self.send_command("G54")
-        else:
-            self.send_command("G10P2L2x%sy%sz%s" % (x,y,z))
-            self.send_command("G55")
-        pass
+            return super(MotonControl,self).work_offset(x,y,z,a,b)
+            
+        self.send_command("G10P2L2x%sy%sz%s" % (x,y,z))
+        self.send_command("G55")
+        return super(MotonControl,self).work_offset(x,y,z,a,b)
     
     def home(self):
         self.send_command("$H")

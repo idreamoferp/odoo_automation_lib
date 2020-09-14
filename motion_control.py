@@ -45,3 +45,6 @@ class MotonControl(object):
         self._goto_position(x+self.work_offset_x, y+self.work_offset_y, z+self.work_offset_z, a+self.work_offset_a, b+self.work_offset_b, feed)
         pass
     
+    def wait_for_movement(self):
+        return True
+    
