@@ -336,6 +336,7 @@ class MRP_Carrier_Lane(object):
                     #there was a problem processing the ingress, set the run status to False and warning to True
                     self.warn = True
                     self._logger.warning("Failed to process ingress.")
+                    self.process_egress()
                     break
                 
                 self.process_carrier()
@@ -351,11 +352,12 @@ class MRP_Carrier_Lane(object):
                     self.warn = True
                     self._logger.warning("Failed to process egress.")
                     break
+                
                 self._logger.info("Machine has processed egress.")
 
 
                 #process carrier compleeted in the database
-                self.currernt_carrier.carrier_history_id.transfer_carrier()
+                #self.currernt_carrier.carrier_history_id.transfer_carrier()
                 #remove the carrier history from the cache
                 self.carrier_history_cache.pop(self.currernt_carrier.id)
                 self.route_node_carrier_queue.pop(0)
