@@ -1,6 +1,7 @@
 import automation, conveyor, automation_web
 import logging, odoorpc, threading, time, argparse, configparser
 import digitalio, board, busio #blinka libs
+import RPi.GPIO as GPIO #RPi libs for interupts
 import motion_control_grbl as motion_control
 from adafruit_mcp230xx.mcp23017 import MCP23017
 i2c = busio.I2C(board.SCL, board.SDA)
@@ -62,13 +63,13 @@ class TestMachine(automation_web.Automation_Webservice, automation.MRP_Automatio
         
     def button_input_loop(self):
         while True:
-            if not self.button_start_input.value:
+            if self.button_start_input.value:
                 self.button_start()
             
-            if not self.button_stop_input.value:
+            if self.button_stop_input.value:
                 self.button_stop()
                 
-            if not self.button_estop_input.value:
+            if self.button_estop_input.value:
                 self.e_stop()
                 
             if self.button_estop_input.value and self.e_stop_status == True:
@@ -119,7 +120,7 @@ class TestMachine(automation_web.Automation_Webservice, automation.MRP_Automatio
         
     #motion and machine controls
     def goto_default_location(self):
-        self.motion_control.goto_position_abs(y=325,z=0.0,feed=6000)
+        self.motion_control.goto_position_abs(y=325,z=0.0)
     
         
 class MRP_Carrier_Lane_0(automation.MRP_Carrier_Lane):
@@ -135,6 +136,9 @@ class MRP_Carrier_Lane_0(automation.MRP_Carrier_Lane):
         self.ingress_end_stop.direction = digitalio.Direction.INPUT
         self.ingress_end_stop.pull = digitalio.Pull.UP
         
+        GPIO.setup(26, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+        GPIO.add_event_detect(26, GPIO.BOTH, callback=self.irq_index)
+        
         self.output_ingress_gate = mcp20.get_pin(7)
         self.output_ingress_gate.direction = digitalio.Direction.OUTPUT
         self.output_ingress_gate.value = False
@@ -143,14 +147,58 @@ class MRP_Carrier_Lane_0(automation.MRP_Carrier_Lane):
         self.output_carrier_capture.direction = digitalio.Direction.OUTPUT
         self.output_carrier_capture.value = False
         
+        self.index_1 = 0.0
+        self.index_0 = 0.0
+        
+        self.index_failures = 0
+        
         self._logger.info("Lane INIT Complete")
         pass
     
-    def goto_position_abs(self, y=0,z=0,a=0, feed=0):
-        return self.mrp_automation_machine.motion_control.goto_position_abs(x=a,y=y,z=z,feed=3000)
-    def goto_position_rel(self, y=0,z=0,a=0,feed=0):
-        return self.mrp_automation_machine.motion_control.goto_position_rel(x=a,y=y,z=z,feed=3000)
+    def goto_position_abs(self, y=False,z=False,a=False,feed=False):
+        return self.mrp_automation_machine.motion_control.goto_position_abs(x=a,y=y,z=z,feed=feed)
+    def goto_position_rel(self, y=False,z=False,a=False,feed=False):
+        return self.mrp_automation_machine.motion_control.goto_position_rel(x=a,y=y,z=z,feed=feed)
     
+    def irq_index(self, ch):
+        value = GPIO.input(ch)
+        cord = float(self.mrp_automation_machine.motion_control.mach_position_x)
+        if self.index_0 == 0.0:
+            self.index_0 = cord
+            
+            return
+        else:
+            self.index_1 = cord
+            
+            return
+        pass
+        
+    def index_carrier(self):
+        self._logger.info("Indexing carrier")
+        #loop while waiting for the index trigger
+        self.index_0 = 0.0
+        self.index_1 = 0.0
+        
+        indexed = False
+        fail_count = 0
+        while not indexed and fail_count < 10:
+            self.goto_position_rel(a=45.0)
+            time.sleep(1)
+            self.mrp_automation_machine.motion_control.wait_for_movement()
+            
+            fail_count += 1
+            
+            if self.index_0 != 0.0 and self.index_1 != 0.0:
+                index= (self.index_0 - self.index_1) + self.index_0
+                self.mrp_automation_machine.motion_control.work_offset(x=self.index_0 + -41.0, y=self.mrp_automation_machine.motion_control.work_offset_y)
+                self.goto_position_abs(a=0.0)
+                indexed = True
+        if not indexed:
+            self.index_failures += 1
+            
+        return indexed
+        
+            
     #main loop functions
     def preflight_checks(self):
         #check that the machine is ready to accept a product.
@@ -170,8 +218,8 @@ class MRP_Carrier_Lane_0(automation.MRP_Carrier_Lane):
         self._logger.info("Machine opened ingress gate, waiting for product to trigger end stop")
         
         #positioning machine to lane zero
-        self.mrp_automation_machine.motion_control.work_offset(y=550)
-        self.goto_position_abs(0,0,0,feed=5000)
+        self.mrp_automation_machine.motion_control.work_offset(y=530)
+        self.goto_position_abs(y=0,z=0)
         
         #wait for ingress end stop trigger
         time_out = time.time()
@@ -188,6 +236,12 @@ class MRP_Carrier_Lane_0(automation.MRP_Carrier_Lane):
         self.output_ingress_gate.value = False
         self.output_carrier_capture.value = True
         
+        #index carrier
+        if not self.index_carrier():
+            self._logger.warn("Could not Index carrier.")
+            return False
+        
+        #wait for all motion to compleete
         self.mrp_automation_machine.motion_control.wait_for_movement()
         
         return True
@@ -195,13 +249,13 @@ class MRP_Carrier_Lane_0(automation.MRP_Carrier_Lane):
     def process_egress(self):
         self._logger.info("Machine opening egress gate, waiting to clear end stop trigger.")
         
-        #put the machine in a safe location
-        self.goto_position_abs(z=0,feed=8000)
         
+        #put the machine in a safe location
+        self.mrp_automation_machine.motion_control.work_offset(y=0)
+        self.goto_position_abs(z=0)
         time.sleep(1)
         self.mrp_automation_machine.motion_control.wait_for_movement()
-        #set the machine offsets back to machine cord.
-        self.mrp_automation_machine.motion_control.work_offset(y=0)
+        self.goto_position_abs(a=0)
         
         #configure diverter for the destination
         destination_lane = self.currernt_carrier.carrier_history_id.route_node_lane_dest_id
@@ -221,7 +275,7 @@ class MRP_Carrier_Lane_0(automation.MRP_Carrier_Lane):
         
         #free the diverter for other operations
         self.mrp_automation_machine.conveyor_1.diverter.clear_divert()
-        self.mrp_automation_machine.goto_default_location()
+        
         return True
         
     def quit(self):
@@ -238,7 +292,7 @@ class MRP_Carrier_Lane_1(automation.MRP_Carrier_Lane):
         self._logger.info("Lane INIT Complete")
         pass
 
-import RPi.GPIO as GPIO
+
 class Conveyor_1(conveyor.Conveyor):
     
     def __init__(self):
