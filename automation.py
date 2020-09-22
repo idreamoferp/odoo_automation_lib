@@ -423,6 +423,10 @@ class Carrier(object):
     def id(self):
         return self.carrier_history_id.id
         
+    @property
+    def barcode(self):
+        return self.carrier_history_id.carrier_id.barcode
+        
     def process_carrier(self):
 
         exec(self.carrier_history_id.ref_model.document_content)
