@@ -1,4 +1,4 @@
-import automation, conveyor, automation_web
+import automation, conveyor, automation_web, dispenser
 import logging, odoorpc, threading, time, argparse, configparser
 import digitalio, board, busio #blinka libs
 import RPi.GPIO as GPIO #RPi libs for interupts
@@ -52,6 +52,11 @@ class TestMachine(automation_web.Automation_Webservice, automation.MRP_Automatio
         #init route lanes
         
         self.route_lanes = [MRP_Carrier_Lane_0(self.api, self), MRP_Carrier_Lane_1(self.api, self)]
+        
+        self.dispenser = dispenser.FRC_advantage_ii()
+        self.dispenser.trigger_output = mcp20.get_pin(0)
+        self.dispenser.trigger_output.direction = digitalio.Direction.OUTPUT
+        self.dispenser.trigger_output.value = False
         
         self.motion_control = motion_control.MotonControl('/dev/serial0')
         self.motion_control.home()
