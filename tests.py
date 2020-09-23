@@ -1,5 +1,5 @@
 import automation, conveyor, automation_web, dispenser
-import logging, odoorpc, threading, time, argparse, configparser
+import logging, odoorpc, threading, time, argparse, configparser, serial
 import digitalio, board, busio #blinka libs
 import RPi.GPIO as GPIO #RPi libs for interupts
 import motion_control_grbl as motion_control
@@ -154,9 +154,9 @@ class MRP_Carrier_Lane_0(automation.MRP_Carrier_Lane):
         
         self.index_1 = 0.0
         self.index_0 = 0.0
-        
         self.index_failures = 0
         
+        self.barcode_scanner = serial.Serial('/dev/ttyUSB0', baudrate=115200, rtscts=True)
         self._logger.info("Lane INIT Complete")
         pass
     
@@ -188,7 +188,6 @@ class MRP_Carrier_Lane_0(automation.MRP_Carrier_Lane):
         fail_count = 0
         while not indexed and fail_count < 10:
             self.goto_position_rel(a=45.0)
-            time.sleep(1)
             self.mrp_automation_machine.motion_control.wait_for_movement()
             
             fail_count += 1
@@ -196,14 +195,46 @@ class MRP_Carrier_Lane_0(automation.MRP_Carrier_Lane):
             if self.index_0 != 0.0 and self.index_1 != 0.0:
                 index= (self.index_0 - self.index_1) + self.index_0
                 self.mrp_automation_machine.motion_control.work_offset(x=self.index_0 + -41.0, y=self.mrp_automation_machine.motion_control.work_offset_y)
-                self.goto_position_abs(a=0.0)
+                
                 indexed = True
         if not indexed:
             self.index_failures += 1
             
         return indexed
-        
+    
+    def clear_barcode_reader(self):
+        self.barcode_scanner.reset_input_buffer()
+        pass
+    
+    def read_carrier_barcode(self):
+        barcode = False
+        if self.barcode_scanner.in_waiting > 0:
+            #barcode was read during indexing
+            barcode = self.barcode_scanner.readline()
+        fail_count = 0
+        self.goto_position_abs(a=110.0)
+        while isinstance(barcode, bool) and fail_count < 5:
+            self.goto_position_abs(a=110.0, feed=500)
             
+            self.mrp_automation_machine.motion_control.wait_for_movement()
+            
+            if self.barcode_scanner.in_waiting:
+                barcode = self.barcode_scanner.readline()
+                
+            if isinstance(barcode, bool):
+                self.goto_position_rel(a=-30.0, feed=500)
+                
+                self.mrp_automation_machine.motion_control.wait_for_movement()
+            
+            if self.barcode_scanner.in_waiting:
+                barcode = self.barcode_scanner.readline()
+            fail_count += 1
+                
+        if not isinstance(barcode, bool):
+            barcode = barcode.decode('utf-8').replace('\r\n',"")
+            
+        return barcode
+        
     #main loop functions
     def preflight_checks(self):
         #check that the machine is ready to accept a product.
@@ -241,13 +272,30 @@ class MRP_Carrier_Lane_0(automation.MRP_Carrier_Lane):
         self.output_ingress_gate.value = False
         self.output_carrier_capture.value = True
         
+        #clear barcode buffer 
+        self.clear_barcode_reader()
+        
         #index carrier
         if not self.index_carrier():
             self._logger.warn("Could not Index carrier.")
             return False
         
+        #readin barcode
+        barcode = self.read_carrier_barcode()
+        
+        if isinstance(barcode, bool):
+            self._logger.warn("Could not scan barcode")
+            return false
+            
+            
+        if barcode != self.currernt_carrier.barcode:
+            self._logger.warn("Carrier barcode did not match current carrier")
+            return False
+        
         #wait for all motion to compleete
+        self.goto_position_abs(a=0.0)
         self.mrp_automation_machine.motion_control.wait_for_movement()
+        
         
         return True
         
