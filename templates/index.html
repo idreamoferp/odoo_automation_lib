@@ -4,6 +4,19 @@
 <title>{{ machine.equipment_id.display_name }}</title>
 {% endblock %}
 
+<<<<<<< HEAD
+=======
+{% block header %}
+    <h1>Title</h1>
+{% endblock %}
+
+{% block left %}
+    
+{% endblock %}
+
+{% block right %}
+    
+>>>>>>> master
 {% block body %}
     <div class="container-fluid">
         <div class="row">
@@ -52,7 +65,11 @@
                     <div class="col-md-1">Status</div>
                     <div class="col-md-4">Destination</div>
                 </div>
+<<<<<<< HEAD
                 <div class="col-md-12" id="carrier_lane_queue_{{ carrier_lane.route_node_lane.sequence}}"></div>
+=======
+                <div id="carrier_lane_queue_{{ carrier_lane.route_node_lane.sequence}}"></div>
+>>>>>>> master
            </div>
         {% endfor %}
         </div>

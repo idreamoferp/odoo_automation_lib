@@ -22,8 +22,8 @@ class MRP_Automation(machine.Machine):
         #internal vars
         self.run_status = False
         self.e_stop_status = False
-        # self.busy = False
-        # self.warn = False
+        self.machine_busy = False
+        self.machine_warn = False
 
         #indicator theads
         self.indicator_start_thread = threading.Thread(target=self.indicator_start_loop, daemon=True)
@@ -286,7 +286,7 @@ class MRP_Carrier_Lane(object):
                 if not self.preflight_checks():
                     self.warn=True
                     self._logger.warning("Failed Pre-Flight checks.")
-                    time.sleep(30)
+                    time.sleep(5)
                     break
 
                 #reset any preflight warning indicators
@@ -306,18 +306,6 @@ class MRP_Carrier_Lane(object):
                 self._logger.info("Machines ingress has been triggered.")
                 self.busy = True
 
-                #set the current carrier var
-                if len(self.route_node_carrier_queue) == 0:
-                    self._logger.warn("The Carrier Queue is empty.")
-                    self.busy = False
-                    time.sleep(10)
-                    break
-
-                self.currernt_carrier = self.carrier_history_cache[self.route_node_carrier_queue[0]]
-                self._logger.info("Processing %s" % self.currernt_carrier.carrier_history_id.name)
-                
-                
-
                 #check the blocking status of the machine and workcenter in odoo.
                 if self.mrp_automation_machine.get_blocking_status():
                     #throttle retries a bit
@@ -330,21 +318,41 @@ class MRP_Carrier_Lane(object):
                 #all is well, we can continue to bring in the product to the machine
                 self._logger.info("Machine is ready to process ingress.")
                 
+                if len(self.route_node_carrier_queue) > 0:
+                    self.currernt_carrier = self.carrier_history_cache[self.route_node_carrier_queue[0]]
+                
                 
                 #prcess ingress, bring the product into the machine and prepare it for processing.
                 if not self.process_ingress():
                     #there was a problem processing the ingress, set the run status to False and warning to True
                     self.warn = True
                     self._logger.warning("Failed to process ingress.")
-                    self.process_egress()
+                    #self.process_egress()
                     break
                 
-                self.process_carrier()
-                    
+                # #set the current carrier var
+                # if len(self.route_node_carrier_queue) == 0:
+                #     self._logger.warn("The Carrier Queue is empty.")
+                #     self.busy = False
+                #     time.sleep(10)
+                #     break
+
+                
+                
                 
                 #ingress has been processed sucessfully, continue to process the product.
                 self._logger.info("Machine has processed ingress.")
-
+                
+                #verivy this carrier need to be worked on by this machine, or kick it down the road.
+                wc_ids = self.mrp_automation_machine.equipment_id.workcenter_ids
+                # if self.current_carrier.workcenter_id in self.mrp_automation_machine.workcenter_ids:
+                
+                self._logger.info("Processing %s" % self.currernt_carrier.carrier_history_id.name)    
+                
+                if not self.process_carrier():
+                    self.warn = True
+                    break
+                
                 #process egress from the machine.
                 self._logger.info("Machine is ready to process egress.")
                 if not self.process_egress():
@@ -380,15 +388,13 @@ class MRP_Carrier_Lane(object):
         return False
     
     def process_carrier(self):
-        self.currernt_carrier.logger.info("Processing Carrier")
         try:
-            
             self.currernt_carrier.process_carrier()
+            return True
         except Exception as e:
             self._logger.warn(e)
             self.currernt_carrier.logger.warn(e)
-            self.warn = True
-            self.busy = False
+            return False
         
     def process_egress(self):
         #to be inherited by the main machine config and returns True when the product has processed through egress and is clear of this machine.
@@ -409,12 +415,12 @@ class Carrier(object):
         self.lane = carrier_lane
         self.lane_id = carrier_lane.route_node_lane
         self.carrier_history_id = carrier_history_id
-        self.logger = logging.getLogger("%s %s" % (self.lane_id.name, carrier_history_id.barcode))
+        self.logger =logging.getLogger("%s %s" % (self.lane_id.name, carrier_history_id.barcode))
 
         #setup custom logger to log carrier events to carrier history in odoo
-        ch = Carrier_Handler(carrier = carrier_history_id)
-        ch.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
-        self.logger.addHandler(ch)
+        self.ch = Carrier_Handler(carrier = carrier_history_id)
+        self.ch.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+        self.logger.addHandler(self.ch)
         
         self.logger.info("Create Carier")
         pass
@@ -428,10 +434,38 @@ class Carrier(object):
         return self.carrier_history_id.carrier_id.barcode
         
     def process_carrier(self):
+        self.logger.addHandler(self.ch)
+        
+        self.logger.info("Create Carier")
+        pass
 
-        exec(self.carrier_history_id.ref_model.document_content)
-
-        pass  
+    @property
+    def id(self):
+        return self.carrier_history_id.id
+        
+    @property
+    def barcode(self):
+        return self.carrier_history_id.carrier_id.barcode
+        
+    def process_carrier(self):
+        
+        exec_globals = {'self':self, 'motion_control':self.lane.mrp_automation_machine.motion_control,}
+        exec_locals = {}
+        exec(self.carrier_history_id.ref_model.document_content, exec_globals, exec_locals)
+        
+        if not exec_locals['preflight_checks'](self):
+            raise "Failed to execute carrier preflight checks"
+        
+        if not exec_locals['process'](self):
+            raise "Failed to execute process carrier"
+        
+        self.lane.mrp_automation_machine.motion_control.wait_for_movement()
+        
+        if not exec_locals['postflight_checks'](self):
+            raise "Failed to execute postflight checks"    
+        
+        self.logger.removeHandler(self.ch)
+        pass
         
         
 
