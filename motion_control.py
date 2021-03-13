@@ -3,6 +3,7 @@ class MotonControl(object):
     def __init__(self):
         self.status = False
         self.coordinate_system = False
+        self.is_home = False
         
         self.position_x = 0.0
         self.position_y = 0.0
@@ -31,18 +32,20 @@ class MotonControl(object):
         self.work_offset_z = self.position_z
         self.work_offset_a = self.position_a
         self.work_offset_b = self.position_b
-        
+        self.is_home = True
         return True
     
-    def _goto_position(self,x=False,y=False,z=False,a=False,b=False,feed=False):
+    def _goto_position(self,x=False,y=False,z=False,a=False,b=False,feed=False,wait=False):
+        if wait:
+            self.wait_for_movement()
         pass
     
-    def goto_position_rel(self,x=False,y=False,z=False,a=False,b=False,feed=False):
-        self._goto_position(x+self.position_x, y+self.position_y, z+self.position_z, a+self.position_a, b+self.position_b, feed)
+    def goto_position_rel(self,x=False,y=False,z=False,a=False,b=False,feed=False,wait=False):
+        self._goto_position(x+self.position_x, y+self.position_y, z+self.position_z, a+self.position_a, b+self.position_b, feed, wait)
         pass
     
-    def goto_position_abs(self,x=False,y=False,z=False,a=False,b=False,feed=False):
-        self._goto_position(x+self.work_offset_x, y+self.work_offset_y, z+self.work_offset_z, a+self.work_offset_a, b+self.work_offset_b, feed)
+    def goto_position_abs(self,x=False,y=False,z=False,a=False,b=False,feed=False,wait=False):
+        self._goto_position(x+self.work_offset_x, y+self.work_offset_y, z+self.work_offset_z, a+self.work_offset_a, b+self.work_offset_b, feed,wait)
         pass
     
     def wait_for_movement(self):

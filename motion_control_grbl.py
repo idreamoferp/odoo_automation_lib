@@ -3,6 +3,11 @@ import serial
 import time
 import configparser
 import threading
+import logging
+
+#setup logger
+_logger = logging.getLogger("Motion Control GRBL")
+
 error_messages = {
     "1": "G-code words consist of a letter and a value. Letter was not found.", 
     "2":"Numeric value format is not valid or missing an expected value.",
@@ -41,6 +46,17 @@ error_messages = {
     "37":"The G43.1 dynamic tool length offset command cannot apply an offset to an axis other than its configured axis. The Grbl default axis is the Z-axis.",
     "38":"Tool number greater than max supported value."
         }
+alarm_messages = {
+    '1':'Hard limit triggered. Machine position is likely lost due to sudden and immediate halt. Re-homing is highly recommended.',
+    '2':'G-code motion target exceeds machine travel. Machine position safely retained. Alarm may be unlocked.',
+    '3':'Reset while in motion. Grbl cannot guarantee position. Lost steps are likely. Re-homing is highly recommended.',
+    '4':'Probe fail. The probe is not in the expected initial state before starting probe cycle, where G38.2 and G38.3 is not triggered and G38.4 and G38.5 is triggered.',
+    '5':'Probe fail. Probe did not contact the workpiece within the programmed travel for G38.2 and G38.4.',
+    '6':'Homing fail. Reset during active homing cycle.',
+    '7':'Homing fail. Safety door was opened during active homing cycle.',
+    '8':'Homing fail. Cycle failed to clear limit switch when pulling off. Try increasing pull-off setting or check wiring.',
+    '9':'Homing fail. Could not find limit switch within search distance. Defined as 1.5 * max_travel on search and 5 * pulloff on locate phases.',
+    '10':'Homing fail. On dual axis machines, could not find the second limit switch for self-squaring.',}
         
 class MotonControl(mc.MotonControl):
     def __init__(self, port, baud=115200):
@@ -59,7 +75,6 @@ class MotonControl(mc.MotonControl):
         self.override_rapids = 100
         self.override_spindle = 100
         
-        self.errors = []
         
         #wakeup grbl and flush
         self.comm.write(b"\r\n\r\n")
@@ -67,43 +82,49 @@ class MotonControl(mc.MotonControl):
         self.comm.flushInput()  # Flush startup text in serial input
         
         #launch status refresher
-        self.status_refresh = 0.25
+        self.status_refresh = 0.5
+        self.read_thread = threading.Thread(target=self.read_buffer, daemon=True)
+        self.read_thread.start()
         self.status_thread = threading.Thread(target=self.status_update, daemon=True)
-        self.status_thread.start()
+        # self.status_thread.start()
+        
+        self.status = True
+        self.errors = []
         
     def status_update(self):
+        try:            
+            command = "?"
+            self.comm.write(command.encode('utf-8'))
+        except Exception as e:
+            _logger.warn("%s while sending status request" % e)
+    
+    def read_buffer(self):
         while True:
-            while self.comm.in_waiting > 0:
-                try:
-                    with self.comm_lock:
-                        #read in entire serial buffer.
-                        if self.comm.in_waiting > 0:
-                            command = "?"
-                            self.comm.write(command.encode('utf-8'))
-                        stat = self.comm.readline().decode('utf-8').replace('\r\n',"")
-                        
+            try:
+                buffer_line = self.comm.readline().decode('utf-8').replace('\r\n',"")
+                
+                if buffer_line == 'ok' or "":
+                    continue
+                
+                if "<" in buffer_line:
+                    self.parse_status(buffer_line)
+                    continue
+                
+                if "error" in buffer_line:
+                    self.parse_error(buffer_line)
+                    continue
+                
+                if "ALARM" in buffer_line:
+                    self.parse_error(buffer_line)
+                    continue
+                
+                if "Grbl" in buffer_line:
+                    version = buffer_line.split(" ")
+                    self.grbl_version = version[1]
+                    continue
                     
-                    
-                    if stat == 'ok' or "":
-                        continue
-                    
-                    if "<" in stat:
-                        self.parse_status(stat)
-                        continue
-                        
-                    #if "error" in stat:
-                    #    continue
-                    
-                    if "Grbl" in stat:
-                        version = stat.split(" ")
-                        self.grbl_version = version[1]
-                        continue
-                    
-                    print(stat)
-                except Exception as e:
-                    print(e)
-            
-            time.sleep(self.status_refresh)
+            except Exception as e:
+                _logger.warn("%s while reading buffer" % e)
     
     def parse_status(self, status_message):
         try:
@@ -147,31 +168,44 @@ class MotonControl(mc.MotonControl):
                 
                 drink_me=1
         except Exception as e:
-            print(e)
+            _logger.warn("%s while processing status message" % e)
             
         pass
     
     def parse_error(self, error_message):
         
         message = error_message.split(":")
+        if message[0] == 'error':
+            self.errors.append((time.time(),'ERROR', error_messages[message[1]]))
+            _logger.error(error_messages[message[1]])
         
+        if message[0] == 'ALARM':
+            self.errors.append((time.time(),'ALARM', alarm_messages[message[1]]))
+            _logger.warn(alarm_messages[message[1]])
+        
+        self.is_home = False
+            
+            
         pass
     
     def soft_reset(self):
         self.comm.write('\030\r\n'.encode("utf-8"))
         time.sleep(1)
-        print(self.send_command("$X\r\n"))
+        self.send_command("$X\r\n")
+        self.is_home = False
+        self.errors = []
+        pass
         
     def send_command(self, command):
-        res = ""
+        
         with self.comm_lock:
             self.comm.write(command.encode('utf-8') )
             self.comm.write(b'\r\n')
-            res = self.comm.readline().decode('utf-8').replace('\r\n',"")
+            # res = self.comm.readline().decode('utf-8').replace('\r\n',"")
                
-        return res
+        pass
        
-    def _goto_position(self,x=False,y=False,z=False,a=False,b=False,feed=False):
+    def _goto_position(self,x=False,y=False,z=False,a=False,b=False,feed=False, wait=False):
         command = ""
         if not isinstance(x, bool):
             command += "X%s " % x
@@ -184,18 +218,18 @@ class MotonControl(mc.MotonControl):
             command += "F%s " % feed
         else:
             command = "G0" + command
+        self.status='Run'
+        self.send_command(command)
             
-        result = self.send_command(command)
-            
-        return super(MotonControl, self)._goto_position(x,y,z,a,b,feed)
+        return super(MotonControl, self)._goto_position(x,y,z,a,b,feed,wait)
         
-    def goto_position_rel(self,x=False,y=False,z=False,a=False,b=False,feed=False):
+    def goto_position_rel(self,x=False,y=False,z=False,a=False,b=False,feed=False, wait=False):
         self.send_command("G91")
-        return self._goto_position(x,y,z,a,b,feed)
+        return self._goto_position(x,y,z,a,b,feed,wait)
     
-    def goto_position_abs(self,x=False,y=False,z=False,a=False,b=False,feed=False):
+    def goto_position_abs(self,x=False,y=False,z=False,a=False,b=False,feed=False, wait=False):
         self.send_command("G90")
-        return self._goto_position(x,y,z,a,b,feed)
+        return self._goto_position(x,y,z,a,b,feed,wait)
         
     def work_offset(self,x=0,y=0,z=0,a=0,b=0):
         if x+y+z+a+b == 0:
@@ -207,9 +241,10 @@ class MotonControl(mc.MotonControl):
         self.send_command("G55")
         return super(MotonControl,self).work_offset(x,y,z,a,b)
     
-    def home(self):
-        self.send_command("$H")
-        self.send_command("G92x0y0z0")
+    def home(self, force=False):
+        if not self.is_home or force:
+            self.send_command("$H")
+            self.send_command("G92x0y0z0")
         
         return super(MotonControl, self).home()
 
@@ -218,8 +253,10 @@ class MotonControl(mc.MotonControl):
         pass
     
     def wait_for_movement(self):
+        start_wait_time = time.time()
         while self.status == 'Run':
-            time.sleep(0.1)
+            self.status_update()
+            time.sleep(0.5)
             
         return super(MotonControl, self).wait_for_movement()
     

@@ -14,7 +14,7 @@ class Machine(object):
         self.equipment_id = False 
         if self.asset_id:
             self.equipment_id = self.api.env['maintenance.equipment'].browse(asset_id)
-            
+        
         _logger.info("Machine INIT Compleete.")
         return
     
