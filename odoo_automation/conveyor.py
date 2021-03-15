@@ -1,4 +1,4 @@
-import machine
+from . import machine
 import logging, configparser, threading, time
 from simple_pid import PID
 

@@ -1,0 +1,10 @@
+<ul class="list-group list-group">
+{%for workorder_id in workorder_ids%} 
+    <a href="/workorder/{{ workorder_id.id }}">
+        <li class="list-group-item list-group-item-action mb-0 h3">
+            <span>{{ workorder_id.product_id.default_code }}  [{{ workorder_id.production_id.name }}]</span> 
+            <span class="float-right">{{ workorder_id.qty_produced }} / {{ workorder_id.qty_production }} {{ workorder_id.product_uom_id.name }}</span>
+        </li> 
+    </a> 
+{%endfor%}
+</ul>

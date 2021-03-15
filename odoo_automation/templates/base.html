@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" integrity="sha384-JcKb8q3iqJ61gNV9KGb8thSsNjpSL0n8PARn9HuZOnIxN0hoP+VmmDGMN5t9UJ0Z" crossorigin="anonymous">
+
+    <title></title>
+    
+    <script>
+        $(document).ready(function(){
+            
+            var workcenters_dropp_timer = setInterval(workcenters_drop, 6000 * 15);
+            workcenters_drop()
+        });
+        
+        function workcenters_drop(){ 
+            fetch('/workcenters_drop')
+            .then(response => response.text())
+            .then(data => {
+                document.getElementById("workcenters_drop").innerHTML = data;
+                
+              })
+            .catch((error) => {
+               console.error('Error:', error);
+            });
+        }
+    </script>  
+    
+    {% block head %}{% endblock %}
+    
+  </head>
+  <body>
+    <nav class="navbar navbar-light navbar-expand-sm navbar-dark bg-primary">
+      <div class="collapse navbar-collapse" id="navbarSupportedContent">
+        <ul class="navbar-nav mr-auto">
+          
+            <li id="workcenters_drop" class="nav-item dropdown"/>
+            
+            <li class="nav-item ">
+                <a class="nav-link" href="/">Work Orders</a>
+            </li>
+            
+           {% block menu_items %}{% endblock %}
+        </ul>
+        
+      </div>
+       {% block navbar %}{% endblock %}
+    </nav>
+    
+    {% block content %}{% endblock %}
+    
+    <!-- Optional JavaScript -->
+    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js" integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js" integrity="sha384-9/reFTGAW83EW2RDu2S0VKaIzap3H66lZH81PoYlFhbGU+6BZp6G7niu735Sk7lN" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js" integrity="sha384-B4gt1jrGC7Jh4AgTPSdUtOBvfO8shuf57BaghqFfPlYxofvL8/KUEfYiJOMMV+rV" crossorigin="anonymous"></script>
+    
+  </body>
+</html>

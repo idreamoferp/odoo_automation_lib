@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+
+{% block head %}
+<script>
+    $(document).ready(function(){
+        var timer = setInterval(refresh_workorders, 6000 * 5);
+        refresh_workorders()
+    });
+    
+    function refresh_workorders(){ 
+        fetch('/workorders_list')
+        .then(response => response.text())
+        .then(data => {
+            document.getElementById("workorder_ids").innerHTML = data;
+         })
+        .catch((error) => {
+           console.error('Error:', error);
+        });
+    }
+</script>  
+{% endblock %}
+
+{% block header %}
+    <h1>{{ machine.name }}</h1>
+{% endblock %}
+
+{% block content %}
+    <div id="workorder_ids"></div>
+{% endblock %}

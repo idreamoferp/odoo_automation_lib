@@ -1,4 +1,4 @@
-import machine
+from . import machine
 import time, threading
 import digitalio, board
 

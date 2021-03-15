@@ -5,7 +5,7 @@ import logging, odoorpc, threading, time, atexit
 _logger = logging.getLogger("Machine")
 
 class Machine(object):
-    def __init__(self, api, asset_id=False):
+    def __init__(self, api, asset_id, config):
          #sets an on exit function
         atexit.register(self.quit)
         
@@ -17,7 +17,11 @@ class Machine(object):
         
         _logger.info("Machine INIT Compleete.")
         return
-    
+    @property
+    def name(self):
+        if self.equipment_id:
+            return self.equipment_id.name
+            
     def get_blocking_status(self):
         #not yet implemented in odoo, return false to indicate the machine is not blocked from running
         return False

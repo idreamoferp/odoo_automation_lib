@@ -1,0 +1,10 @@
+<!-- WORKCENTER DROPDOWN SELECTION -->
+
+<a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Work Centers</a>
+<div class="dropdown-menu" aria-labelledby="navbarDropdown">
+    {% for workcenter in workcenter_ids%}
+        <a class="dropdown-item">
+            <input type="checkbox" class="form-check-input" style="white-space: nowrap" href="#" {% if workcenter.id in workcenter_ids_checked %} checked {%endif %} id="{{ workcenter.id }}">{{ workcenter.name }}</input>
+        </a>
+    {% endfor %}
+</div>

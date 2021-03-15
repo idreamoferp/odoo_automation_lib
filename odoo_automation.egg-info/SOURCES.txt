@@ -1,0 +1,15 @@
+README.md
+setup.py
+odoo_automation/__init__.py
+odoo_automation/automation.py
+odoo_automation/automation_web.py
+odoo_automation/conveyor.py
+odoo_automation/dispenser.py
+odoo_automation/machine.py
+odoo_automation/motion_control.py
+odoo_automation/motion_control_grbl.py
+odoo_automation.egg-info/PKG-INFO
+odoo_automation.egg-info/SOURCES.txt
+odoo_automation.egg-info/dependency_links.txt
+odoo_automation.egg-info/requires.txt
+odoo_automation.egg-info/top_level.txt

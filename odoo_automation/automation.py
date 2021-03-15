@@ -1,4 +1,4 @@
-import machine
+from . import machine, automation_web
 import logging, odoorpc, threading, time
 
 #setup logger
@@ -7,12 +7,13 @@ _logger = logging.getLogger("Automation")
 indicator_on_time = 1.0
 indicator_off_time = 0.50
 
-class MRP_Automation(machine.Machine):
+class MRP_Automation(machine.Machine, automation_web.Automation_Webservice):
     #this class is for the manufacturing automation machine
     #inherits [machine] for equpiment level functions and calibrations
-    def __init__(self, api, asset_id):
-        super(MRP_Automation, self).__init__(api, asset_id)
-
+    def __init__(self, api, asset_id, config):
+        super(MRP_Automation, self).__init__(api, asset_id, config)
+        #config file
+        self.config = config
         #odoo route node
         self.route_node_id = False
         self.route_node_thread = threading.Thread(target=self.update_route_node_loop, daemon=True)
@@ -32,7 +33,10 @@ class MRP_Automation(machine.Machine):
         self.indicator_e_stop_thread.start()
         self.indicator_warn_thread = threading.Thread(target=self.indicator_warn_loop, daemon=True)
         self.indicator_warn_thread.start()
-
+        
+        if self.config['webservice']['enable'] == 'True':
+            self.start_webservice()
+            
         _logger.info("Machine INIT Compleete.")
         return
     
@@ -94,7 +98,7 @@ class MRP_Automation(machine.Machine):
         for i in range(len(self.route_lanes)):
             #set the lane_id on the lane objects stored in list self.route_lanes
             self.route_lanes[i].route_node_lane = self.route_node_id.lane_ids[i]
-            _logger.info("Set lane %s" % (self.route_node_id.lane_ids[i]))
+            _logger.info("Set lane #%s - %s" % (i, self.route_node_id.lane_ids[i].name))
             pass
 
         _logger.info("Updated Route Node Lanes")
@@ -461,8 +465,6 @@ class Carrier(object):
         
         self.logger.removeHandler(self.ch)
         pass
-        
-        
 
 from logging import StreamHandler
 

@@ -1,0 +1,6 @@
+Adafruit-Blinka
+simple-pid
+RPi.GPIO
+Flask==1.1.2
+numpy
+OdooRPC
