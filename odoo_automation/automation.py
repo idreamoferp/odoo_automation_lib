@@ -450,7 +450,7 @@ class Carrier(object):
         
         exec_globals = {'self':self, 'motion_control':self.lane.mrp_automation_machine.motion_control,}
         exec_locals = {}
-        exec(self.carrier_history_id.ref_model.document_content, exec_globals, exec_locals)
+        exec(self.carrier_history_id.workorder_id.document_content, exec_globals, exec_locals)
         
         if not exec_locals['preflight_checks'](self):
             raise "Failed to execute carrier preflight checks"
