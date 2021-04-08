@@ -1,7 +1,13 @@
 {% for carrier in carrier_lane.route_node_carrier_queue %}
     <div class="row">
         <div class="col-md-2">{{ carrier_lane.carrier_history_cache[carrier].carrier_history_id.barcode }}</div>
-        <div class="col-md-4">{{ carrier_lane.carrier_history_cache[carrier].carrier_history_id.ref_model.display_name }}</div>
+        {% if carrier_lane.carrier_history_cache[carrier].carrier_history_id.production_id %}
+        <div class="col-md-5">{{ carrier_lane.carrier_history_cache[carrier].carrier_history_id.production_id.display_name }}</div>
+        {% endif %}
+        
+        {% if not carrier_lane.carrier_history_cache[carrier].carrier_history_id.production_id %}
+        <div class="col-md-5"></div>
+        {% endif %}
         <div class="col-md-1">{{ carrier_lane.carrier_history_cache[carrier].carrier_history_id.status }}</div>
         <div class="col-md-4">{{ carrier_lane.carrier_history_cache[carrier].carrier_history_id.workcenter_dest_id.name }}</div>
     </div>
