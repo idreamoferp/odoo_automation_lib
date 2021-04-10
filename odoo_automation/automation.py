@@ -230,6 +230,7 @@ class MRP_Carrier_Lane(object):
         self.route_node_lane = False
 
         #carrier lane queue for this lane
+        self.carrier_class = Carrier
         self.carrier_history_cache = {} #this var contains the carrier history database objects that are in the queue
         self.route_node_carrier_queue = [] #this var contains the order the carriers are in the queue by history_id
         self.currernt_carrier = False #this is the carrier currently in the machine to be worked on.
@@ -282,7 +283,7 @@ class MRP_Carrier_Lane(object):
         for carrier_history in obj_carrier_history.browse(self.route_node_carrier_queue):
             if carrier_history.id not in self.carrier_history_cache:
                 #add this carrier to the queue cache.
-                self.carrier_history_cache[carrier_history.id] = Carrier(self.api, carrier_history, carrier_lane = self)
+                self.carrier_history_cache[carrier_history.id] = self.carrier_class(self.api, carrier_history, carrier_lane = self)
                 self._logger.info("Added to Queue - %s" % (carrier_history.display_name))
 
         #TODO will need to pop() out the entires in carrier_history_cache{} that are not in route_node_carrier_queue[] at some point
