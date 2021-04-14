@@ -276,7 +276,7 @@ class MRP_Carrier_Lane(object):
 
         #fetch the carrier_ids queue from the database
         obj_carrier_history = self.api.env["product.carrier.history"]
-        search_doamin = [("route_node_lane_id","=",self.route_node_lane.id)]
+        search_doamin = [("route_node_lane_id","=",self.route_node_lane.id), ("status", "!=", "done")]
         self.route_node_carrier_queue = obj_carrier_history.search(search_doamin)
 
         #cycle through all the carriers in the database, verify them in the queue
@@ -463,6 +463,9 @@ class Carrier(object):
         self.ch.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
         self.logger.addHandler(self.ch)
         
+        
+        self.exec_globals = {"self": self}
+        self.exec_locals = {}
         self.logger.info("Create Carier")
         pass
 
@@ -476,17 +479,16 @@ class Carrier(object):
         
     def process_carrier(self):
         
-        exec_globals = {'self':self, 'motion_control':self.lane.mrp_automation_machine.motion_control,}
-        exec_locals = {}
-        exec(self.carrier_history_id.workorder_id.document_content, exec_globals, exec_locals)
         
-        if not exec_locals['preflight_checks'](self):
+        exec(self.carrier_history_id.workorder_id.document_content, self.exec_globals, self.exec_locals)
+        
+        if not self.exec_locals['preflight_checks'](self):
             raise "Failed to execute carrier preflight checks"
         
-        if not exec_locals['process'](self):
+        if not self.exec_locals['process'](self):
             raise "Failed to execute process carrier"
         
-        if not exec_locals['postflight_checks'](self):
+        if not self.exec_locals['postflight_checks'](self):
             raise "Failed to execute postflight checks"    
         
         self.logger.removeHandler(self.ch)
