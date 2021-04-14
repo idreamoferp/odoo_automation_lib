@@ -26,11 +26,9 @@ class FRC_advantage_ii(Dispenser):
         return super(FRC_advantage_ii, self).__init__()
         
     def _start_dispense(self):
-        self.trigger_output.value = True
         return super(FRC_advantage_ii, self)._start_dispense()
         
     def _end_dispense(self):
-        self.trigger_output.value = False
         return super(FRC_advantage_ii, self)._end_dispense()
         
     def _dispense(self, quantity):
