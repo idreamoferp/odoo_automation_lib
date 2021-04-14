@@ -1,4 +1,4 @@
-import motion_control as mc
+from . import motion_control as mc
 import serial
 import time
 import configparser
