@@ -276,7 +276,7 @@ class MRP_Carrier_Lane(object):
 
         #fetch the carrier_ids queue from the database
         obj_carrier_history = self.api.env["product.carrier.history"]
-        search_doamin = [("route_node_lane_id","=",self.route_node_lane.id)]
+        search_doamin = [("route_node_lane_id","=",self.route_node_lane.id), ("status", "!=", "done")]
         self.route_node_carrier_queue = obj_carrier_history.search(search_doamin)
 
         #cycle through all the carriers in the database, verify them in the queue
