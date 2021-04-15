@@ -14,6 +14,7 @@ class MRP_Automation(machine.Machine, automation_web.Automation_Webservice):
         super(MRP_Automation, self).__init__(api, asset_id, config)
         #config file
         self.config = config
+        
         #odoo route node
         self.route_node_id = False
         self.route_node_thread = threading.Thread(target=self.update_route_node_loop, daemon=True)
@@ -100,6 +101,7 @@ class MRP_Automation(machine.Machine, automation_web.Automation_Webservice):
             self.route_lanes[i].route_node_lane = self.route_node_id.lane_ids[i]
             _logger.info("Set lane #%s - %s" % (i, self.route_node_id.lane_ids[i].name))
             pass
+        
 
         _logger.info("Updated Route Node Lanes")
         pass
@@ -417,7 +419,7 @@ class MRP_Carrier_Lane(object):
             return False
             
         wc_ids = self.mrp_automation_machine.equipment_id.workcenter_ids
-        if self.currernt_carrier.carrier_history_id.workorder_id not in self.mrp_automation_machine.workcenter_ids:
+        if self.currernt_carrier.carrier_history_id.workorder_id not in wc_ids: #self.mrp_automation_machine.workcenter_ids:
             self._logger.info("Machine is not in the workcenter required for this carrier history")
             self.process_egress()
             return False
