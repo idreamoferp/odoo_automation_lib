@@ -418,8 +418,9 @@ class MRP_Carrier_Lane(object):
             self.process_egress()
             return False
             
-        wc_ids = self.mrp_automation_machine.equipment_id.workcenter_ids
-        if self.currernt_carrier.carrier_history_id.workorder_id not in wc_ids: #self.mrp_automation_machine.workcenter_ids:
+        wc_ids = [int(i) for i in self.mrp_automation_machine.config['mrp']['workcenter_ids'].split(",")]  #self.mrp_automation_machine.equipment_id.workcenter_ids
+        wc_id = self.currernt_carrier.carrier_history_id.workorder_id.workcenter_id.id
+        if wc_id not in wc_ids: #self.mrp_automation_machine.workcenter_ids:
             self._logger.info("Machine is not in the workcenter required for this carrier history")
             self.process_egress()
             return False
