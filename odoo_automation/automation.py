@@ -358,8 +358,11 @@ class MRP_Carrier_Lane(object):
                 self._logger.debug("Machine is ready to process ingress.")
                 
                 if len(self.route_node_carrier_queue) > 0:
-                    self.currernt_carrier = self.carrier_history_cache[self.route_node_carrier_queue[0]]
-                
+                    try:
+                        self.currernt_carrier = self.carrier_history_cache[self.route_node_carrier_queue[0]]
+                    except Exception as e:
+                        pass
+                    
                 #prcess ingress, bring the product into the machine and prepare it for processing.
                 if not self.process_ingress():
                     #there was a problem processing the ingress, set the run status to False and warning to True
