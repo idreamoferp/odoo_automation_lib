@@ -1,25 +1,51 @@
-from . import machine
+from odoo_automation import machine
 import logging, configparser, threading, time
 from simple_pid import PID
 
 _logger = logging.getLogger(__name__)
 class Conveyor(object):
-    def __init__(self, name):
-        self.name = name
-        self._logger = logging.getLogger(name)
+    def __init__(self, config):
+        self.config = config
+        self._logger = logging.getLogger(config['name'])
+        self.read_config()        
         
         self.run_status = False
         self.e_stop_status = False
         
-        self._set_ipm = 0
         self.current_ipm = 0
         self.last_tach_tick = 0
-        self.inch_per_rpm = 0
         
-        self.pid_controller = PID(0,0,0, setpoint=0)
-        #self.pid_controller.output_limits = (0, 100)
+        
+        
         self._logger.info("INIT Compleete.")
         pass
+    
+    def read_config(self):
+        self._logger.info("Reading Config file")
+        self.name = self.config['name']
+        self._set_ipm = float(self.config['set_speed'])
+        self.uom = self.config['uom']
+        self.uom_per_tick = float(self.config['uom_per_tick'])
+        P = float(self.config['P'])
+        I = float(self.config['I'])
+        D = float(self.config['D'])
+        L_limit = float(self.config['PID_L_limit'])
+        U_limit = float(self.config['PID_U_limit'])
+        
+        self.pid_controller = PID(P, I, D, setpoint=0)
+        self.pid_controller.output_limits = (L_limit, U_limit)
+        
+        return True
+        
+    def save_config(self):
+        self.config['set_speed'] = self._set_ipm
+        self.config['uom_per_tick'] = self.uom_per_tick
+        self.config['P'] =  self.pid_controller.Kp
+        self.config['I'] = self.pid_controller.Ki
+        self.config['D'] =  self.pid_controller.Kd
+        self.config['PID_L_limit'] = self.pid_controller.pid.output_limits[0]
+        self.config['PID_U_limit'] = self.pid_controller.pid.output_limits[1]
+        return self.config
         
     @property
     def set_ipm(self):
@@ -116,7 +142,6 @@ class Diverter(object):
         #wait for destination lane status to be true
         while destination_lane.get_status():
             time.sleep(10)
-        
         
         self.busy = True    
         

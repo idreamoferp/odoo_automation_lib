@@ -14,6 +14,7 @@ class MRP_Automation(machine.Machine, automation_web.Automation_Webservice):
         super(MRP_Automation, self).__init__(api, asset_id, config)
         #config file
         self.config = config
+        
         #odoo route node
         self.route_node_id = False
         self.route_node_thread = threading.Thread(target=self.update_route_node_loop, daemon=True)
@@ -100,6 +101,7 @@ class MRP_Automation(machine.Machine, automation_web.Automation_Webservice):
             self.route_lanes[i].route_node_lane = self.route_node_id.lane_ids[i]
             _logger.info("Set lane #%s - %s" % (i, self.route_node_id.lane_ids[i].name))
             pass
+        
 
         _logger.info("Updated Route Node Lanes")
         pass
@@ -276,7 +278,7 @@ class MRP_Carrier_Lane(object):
 
         #fetch the carrier_ids queue from the database
         obj_carrier_history = self.api.env["product.carrier.history"]
-        search_doamin = [("route_node_lane_id","=",self.route_node_lane.id)]
+        search_doamin = [("route_node_lane_id","=",self.route_node_lane.id), ("status", "!=", "done")]
         self.route_node_carrier_queue = obj_carrier_history.search(search_doamin)
 
         #cycle through all the carriers in the database, verify them in the queue
@@ -356,8 +358,11 @@ class MRP_Carrier_Lane(object):
                 self._logger.debug("Machine is ready to process ingress.")
                 
                 if len(self.route_node_carrier_queue) > 0:
-                    self.currernt_carrier = self.carrier_history_cache[self.route_node_carrier_queue[0]]
-                
+                    try:
+                        self.currernt_carrier = self.carrier_history_cache[self.route_node_carrier_queue[0]]
+                    except Exception as e:
+                        pass
+                    
                 #prcess ingress, bring the product into the machine and prepare it for processing.
                 if not self.process_ingress():
                     #there was a problem processing the ingress, set the run status to False and warning to True
@@ -412,8 +417,16 @@ class MRP_Carrier_Lane(object):
     def process_carrier(self):
         
         #verivy this carrier need to be worked on by this machine, or kick it down the road.
-        wc_ids = self.mrp_automation_machine.equipment_id.workcenter_ids
-        # if self.current_carrier.workcenter_id in self.mrp_automation_machine.workcenter_ids:
+        if not self.currernt_carrier.carrier_history_id.workorder_id:
+            self.process_egress()
+            return False
+            
+        wc_ids = [int(i) for i in self.mrp_automation_machine.config['mrp']['workcenter_ids'].split(",")]  #self.mrp_automation_machine.equipment_id.workcenter_ids
+        wc_id = self.currernt_carrier.carrier_history_id.workorder_id.workcenter_id.id
+        if wc_id not in wc_ids: #self.mrp_automation_machine.workcenter_ids:
+            self._logger.info("Machine is not in the workcenter required for this carrier history")
+            self.process_egress()
+            return False
                 
         self._logger.info("Processing %s" % self.currernt_carrier.carrier_history_id.name)    
         
@@ -463,6 +476,9 @@ class Carrier(object):
         self.ch.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
         self.logger.addHandler(self.ch)
         
+        
+        self.exec_globals = {"self": self}
+        self.exec_locals = {}
         self.logger.info("Create Carier")
         pass
 
@@ -476,17 +492,16 @@ class Carrier(object):
         
     def process_carrier(self):
         
-        exec_globals = {'self':self, 'motion_control':self.lane.mrp_automation_machine.motion_control,}
-        exec_locals = {}
-        exec(self.carrier_history_id.workorder_id.document_content, exec_globals, exec_locals)
         
-        if not exec_locals['preflight_checks'](self):
+        exec(self.carrier_history_id.workorder_id.document_content, self.exec_globals, self.exec_locals)
+        
+        if not self.exec_locals['preflight_checks'](self):
             raise "Failed to execute carrier preflight checks"
         
-        if not exec_locals['process'](self):
+        if not self.exec_locals['process'](self):
             raise "Failed to execute process carrier"
         
-        if not exec_locals['postflight_checks'](self):
+        if not self.exec_locals['postflight_checks'](self):
             raise "Failed to execute postflight checks"    
         
         self.logger.removeHandler(self.ch)
