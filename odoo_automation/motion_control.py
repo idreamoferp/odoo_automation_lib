@@ -1,7 +1,7 @@
 
 class MotonControl(object):
     def __init__(self):
-        self.status = False
+        self.status = "Not Ready"
         self.coordinate_system = False
         self.is_home = False
         
@@ -27,11 +27,6 @@ class MotonControl(object):
         pass
     
     def home(self):
-        self.work_offset_x = self.position_x
-        self.work_offset_y = self.position_y
-        self.work_offset_z = self.position_z
-        self.work_offset_a = self.position_a
-        self.work_offset_b = self.position_b
         self.is_home = True
         return True
     
@@ -51,3 +46,5 @@ class MotonControl(object):
     def wait_for_movement(self):
         return True
     
+    def soft_reset(self):
+        return True
