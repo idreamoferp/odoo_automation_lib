@@ -67,11 +67,15 @@ class Conveyor(object):
     
     def start(self):
         self.run_status = True
+        if not self.run_status:
+            self._logger.info("Starting")
         pass
     
     def stop(self):
         self.run_status = False
         self.last_tach_tick = 0
+        if self.run_status:
+            self._logger.info("Stopped")
         pass
     
     def e_stop(self):
@@ -118,6 +122,7 @@ class Conveyor(object):
         return True
         
     def quit(self):
+        self.stop()
         
         self._logger.info("Shutdown")
             
