@@ -59,7 +59,7 @@ class MRP_Automation(machine.Machine, automation_web.Automation_Webservice):
         
     #odoo carrer route methods
     def update_route_node_loop(self):
-        time.sleep(5)
+        
         search_domain = [('equipment_id',"=", self.equipment_id.id)]
 
         while True:
@@ -83,7 +83,7 @@ class MRP_Automation(machine.Machine, automation_web.Automation_Webservice):
 
     def update_route_node(self, route_node_id):
         #the node has changed, wipe out cache
-        self.carrier_history_cache ={}
+        self.carrier_history_cache = {}
         self.route_destination_cashe = {}
 
         #set the machines Route Node
@@ -93,7 +93,9 @@ class MRP_Automation(machine.Machine, automation_web.Automation_Webservice):
         #lanes = self.route_node_id.lane_ids
         
         len_lanes = len(self.route_node_id.lane_ids)
-        if len_lanes != len(self.route_lanes):
+        
+        while len_lanes != len(self.route_lanes):
+            _logger.info("Lane count mismatch %s / %s" % (len_lanes, len(self.route_lanes)))
             pass
         
         for i in range(len(self.route_lanes)):

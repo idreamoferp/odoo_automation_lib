@@ -66,16 +66,17 @@ class Conveyor(object):
         return config
     
     def start(self):
-        self.run_status = True
         if not self.run_status:
-            self._logger.info("Starting")
+            self._logger.info("Started at %s %s" % (self._set_ipm, self.uom))
+        self.run_status = True
         pass
     
     def stop(self):
+        if self.run_status:
+            self._logger.info("Stopped.")
         self.run_status = False
         self.last_tach_tick = 0
-        if self.run_status:
-            self._logger.info("Stopped")
+        
         pass
     
     def e_stop(self):
