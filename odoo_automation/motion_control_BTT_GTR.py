@@ -4,6 +4,8 @@ import time, configparser, threading, logging
 class MotonControl(mc.MotonControl):
     def __init__(self, com_port):
         self._logger = logging.getLogger("Marlin MC %s" % (com_port.name))
+        self._logger.setLevel(logging.DEBUG)
+        
         super(MotonControl, self).__init__()
         
         
@@ -11,7 +13,7 @@ class MotonControl(mc.MotonControl):
         self.comm_lock = threading.Lock()
         
         self.axis_to_home = []
-        
+        self.axis_transform_default = {"X":"X", "Y":"Y", "Z":"Z", "A":"A", "B":"B", "C":"C"}
         
         #launch status refresher
         self.status_refresh = 0.5
@@ -57,21 +59,21 @@ class MotonControl(mc.MotonControl):
                 self._logger.warn("%s while reading buffer" % e)
         
     def send_command(self, command):
-        self._logger.debug("Sending Command - %s" % (command))
+        
         command += "\r\n"
         command = command.encode('utf-8')
         
         with self.comm_lock:
             try:
+                self._logger.debug("Sending Command - %s" % (command))
                 bytes_written = self.comm.write(command)
-                self._logger.debug("Sending Command - %s - SENT" % (command))
                 return True
             except Exception as e:
                 
                 self._logger.error(e)
                 return False
        
-    def _goto_position(self,x=False,y=False,z=False,a=False,b=False,feed=False, wait=False):
+    def _goto_position(self,x=False,y=False,z=False,a=False,b=False,feed=False, wait=True):
         command = ""
         if not isinstance(x, bool):
             command += "X%s " % x
@@ -79,9 +81,19 @@ class MotonControl(mc.MotonControl):
             command += "Y%s " % y
         if not isinstance(z, bool):
             command += "Z%s " % z
-        
+            
+            
+        if not isinstance(a, bool):
+            command += "A%s " % a
+            
+        if not isinstance(b, bool):
+            command += "B%s " % b
+            
+        # if not isinstance(c, bool):
+        #     command += "c%s " % c
+            
         if not isinstance(feed, bool):
-            command = "G01" + command
+            command = "G1" + command
             command += "F%s " % feed
         else:
             command = "G0" + command
@@ -92,11 +104,11 @@ class MotonControl(mc.MotonControl):
             
         return super(MotonControl, self)._goto_position(x,y,z,a,b,feed,wait)
         
-    def goto_position_rel(self,x=False,y=False,z=False,a=False,b=False,feed=False, wait=False):
+    def goto_position_rel(self,x=False,y=False,z=False,a=False,b=False,feed=False, wait=True):
         self.send_command("G91")
         return self._goto_position(x,y,z,a,b,feed,wait)
     
-    def goto_position_abs(self,x=False,y=False,z=False,a=False,b=False,feed=False, wait=False):
+    def goto_position_abs(self,x=False,y=False,z=False,a=False,b=False,feed=False, wait=True):
         self.send_command("G90")
         return self._goto_position(x,y,z,a,b,feed,wait)
         
@@ -110,16 +122,23 @@ class MotonControl(mc.MotonControl):
         self.send_command("G55")
         return super(MotonControl,self).work_offset(x,y,z,a,b)
     
-    def home(self, force=False):
+    def home(self, force=False, axis_only=None):
         if not self.is_home or force:
             self.status = "Homing"
+            self.is_home = False
             command = "G28"
-            for axis in self.axis_to_home:
-                command += axis
             
+            for axis in self.axis_to_home:
+                if not axis_only:
+                    command += axis
+                
+            if axis_only:
+                command += axis_only
+                
             result = self.send_command(command)
             
             stop_waiting = True
+           
             while stop_waiting:
                 self._logger.debug("Waiting to home - %s" % (self.is_home))
                 if self.is_home:
@@ -127,7 +146,7 @@ class MotonControl(mc.MotonControl):
                 
                 if self.status == "Homing Failed":
                     stop_waiting = False
-                
+                    
                 time.sleep(.1)
         self._logger.info("Home Operation - %s" % (self.is_home))
         self.status = "Idle"
