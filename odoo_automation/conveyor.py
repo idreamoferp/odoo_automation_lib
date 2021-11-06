@@ -69,7 +69,6 @@ class Conveyor(object):
         if not self.run_status:
             self._logger.info("Started at %s %s" % (self._set_ipm, self.uom))
         self.run_status = True
-        
         pass
     
     def stop(self):
@@ -124,6 +123,7 @@ class Conveyor(object):
         return True
         
     def quit(self):
+        self.stop()
         
         self._logger.info("Shutdown")
             
