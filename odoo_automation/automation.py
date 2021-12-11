@@ -1,5 +1,5 @@
 from . import machine, automation_web
-import logging, odoorpc, threading, time
+import logging, odoorpc, threading, time, json
 
 #setup logger
 _logger = logging.getLogger("Automation")
@@ -95,7 +95,8 @@ class MRP_Automation(machine.Machine, automation_web.Automation_Webservice):
         len_lanes = len(self.route_node_id.lane_ids)
         
         while len_lanes != len(self.route_lanes):
-            _logger.info("Lane count mismatch %s / %s" % (len_lanes, len(self.route_lanes)))
+            _logger.error("Lane count mismatch %s / %s" % (len_lanes, len(self.route_lanes)))
+            time.sleep(5)
             pass
         
         for i in range(len(self.route_lanes)):
@@ -478,10 +479,10 @@ class Carrier(object):
         self.ch.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
         self.logger.addHandler(self.ch)
         
-        
+        self.data_log = json.loads(self.carrier_history_id.data_log)
         self.exec_globals = {"self": self}
         self.exec_locals = {}
-        self.logger.info("Create Carier")
+        self.logger.debug("Create Carier")
         pass
 
     @property
@@ -508,6 +509,9 @@ class Carrier(object):
         
         self.logger.removeHandler(self.ch)
         pass
+    
+    def save_data_log(self):
+        self.carrier_history_id.data_log = json.dumps(self.data_log)
 
 from logging import StreamHandler
 
