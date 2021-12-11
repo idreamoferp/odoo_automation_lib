@@ -2,7 +2,7 @@ from odoo_automation import machine
 import logging, configparser, threading, time
 from simple_pid import PID
 
-_logger = logging.getLogger(__name__)
+#_logger = logging.getLogger(__name__)
 class Conveyor(object):
     def __init__(self, config):
         self.config = config
@@ -14,8 +14,6 @@ class Conveyor(object):
         
         self.current_ipm = 0
         self.last_tach_tick = 0
-        
-        
         
         self._logger.info("INIT Compleete.")
         pass
