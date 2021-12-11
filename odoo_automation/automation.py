@@ -421,11 +421,13 @@ class MRP_Carrier_Lane(object):
         
         #verivy this carrier need to be worked on by this machine, or kick it down the road.
         if not self.currernt_carrier.carrier_history_id.workorder_id:
+            self._logger.info("Carrier %s not for this machine" % (self.currernt_carrier.carrier_history_id.name))
             self.process_egress()
             return False
             
         wc_ids = [int(i) for i in self.mrp_automation_machine.config['mrp']['workcenter_ids'].split(",")]  #self.mrp_automation_machine.equipment_id.workcenter_ids
         wc_id = self.currernt_carrier.carrier_history_id.workorder_id.workcenter_id.id
+        
         if wc_id not in wc_ids: #self.mrp_automation_machine.workcenter_ids:
             self._logger.info("Machine is not in the workcenter required for this carrier history")
             self.process_egress()

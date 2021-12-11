@@ -3,6 +3,7 @@ class MotonControl(object):
     def __init__(self):
         self.status = "Not Ready"
         self.coordinate_system = False
+        self.errors = []
         self.is_home = False
         
         self.position_x = 0.0
@@ -30,7 +31,7 @@ class MotonControl(object):
         self.is_home = True
         return True
     
-    def _goto_position(self,x=False,y=False,z=False,a=False,b=False,feed=False,wait=False):
+    def _goto_position(self,x=False,y=False,z=False,a=False,b=False,feed=False,wait=True):
         if wait:
             self.wait_for_movement()
         pass
