@@ -5,6 +5,8 @@ odoo_automation/automation.py
 odoo_automation/automation_web.py
 odoo_automation/conveyor.py
 odoo_automation/dispenser.py
+odoo_automation/document.py
+odoo_automation/harness_cable.py
 odoo_automation/machine.py
 odoo_automation/motion_control.py
 odoo_automation/motion_control_grbl.py
