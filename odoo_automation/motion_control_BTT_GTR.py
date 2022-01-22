@@ -4,16 +4,15 @@ import time, configparser, threading, logging
 class MotonControl(mc.MotonControl):
     def __init__(self, com_port):
         self._logger = logging.getLogger("Marlin MC %s" % (com_port.name))
-        self._logger.setLevel(logging.DEBUG)
+        # self._logger.setLevel(logging.DEBUG)
         
         super(MotonControl, self).__init__()
-        
-        
         self.comm = com_port
         self.comm_lock = threading.Lock()
         
         self.axis_to_home = []
         self.axis_transform_default = {"X":"X", "Y":"Y", "Z":"Z", "A":"A", "B":"B", "C":"C"}
+        self.axis_transform = self.axis_transform_default
         
         #launch status refresher
         self.status_refresh = 0.5
@@ -76,18 +75,19 @@ class MotonControl(mc.MotonControl):
     def _goto_position(self,x=False,y=False,z=False,a=False,b=False,feed=False, wait=True):
         command = ""
         if not isinstance(x, bool):
-            command += "X%s " % x
+            command += f"{self.axis_transform['X']}{x} "
         if not isinstance(y, bool):
-            command += "Y%s " % y
+            command += f"{self.axis_transform['Y']}{y} "
         if not isinstance(z, bool):
-            command += "Z%s " % z
+            command += f"{self.axis_transform['Z']}{z} "
             
             
         if not isinstance(a, bool):
-            command += "A%s " % a
+            command += f"{self.axis_transform['A']}{a} "
+            pass
             
         if not isinstance(b, bool):
-            command += "B%s " % b
+            command += f"{self.axis_transform['B']}{b} "
             
         # if not isinstance(c, bool):
         #     command += "c%s " % c
