@@ -28,69 +28,81 @@
 
 {% block content %}
     <h3>[{{ workorder_id.production_id.name }}] {{ workorder_id.product_id.default_code }} <div class="float-right">{{ workorder_id.qty_produced }}/{{ workorder_id.qty_production }} {{ workorder_id.product_uom_id.name }}</div></h3>
+    {% if machine.route_node_id %}
+        {% if machine.route_node_id.is_onboarding() %}
+        <div class="container-fluid mb-3">
+            <form method="post" action="">
+                <div class="row col-md-12">Enter the barcode number of a carrier to add to this traveler</div>
+                <div class="row">
+                    <div class="col-md-8"><input type="text" class="form-control" name="barcode"></div>
+                </div>
+            </form>
+        </div>
+        {% endif %}
     
-    {% if machine.route_node_id.is_onboarding() %}
-    <div class="container-fluid mb-3">
-        <form method="post" action="">
-            <div class="row col-md-12">Enter the barcode number of a carrier to add to this traveler</div>
+        <div class="container-fluid">
             <div class="row">
-                <div class="col-md-8"><input type="text" class="form-control" name="barcode"></div>
-            </div>
-        </form>
-    </div>
-    {% endif %}
-    
-    <div class="container-fluid">
-        <div class="row">
-            <div class="col-md-3">
-                
+                <div class="col-md-3">
+                    
+                </div>
             </div>
         </div>
-    </div>
-    <div class="container-fluid">
-        {% for carrier_lane in machine.route_lanes%}
-            <script>
-                $(document).ready(function(){
-                    setInterval(update_carrier_lane_queue, 10000);
-                    function update_carrier_lane_queue(){ 
-                        fetch('/carrier_queue/{{ carrier_lane.route_node_lane.sequence }}')
-                            .then(response => response.text())
-                            .then(data => {
-                                document.getElementById("carrier_lane_queue_{{ carrier_lane.route_node_lane.sequence}}").innerHTML = data;
-                                
-                                })
-                            .catch((error) => {
-                                console.error('Error:', error);
-                                });
-                          }
-                    update_carrier_lane_queue();
-                });
-            </script>
-            
-            <div class="row">
-                <nav class="navbar navbar-expand-lg navbar-light bg-light col-md-12">
-                  <a class="navbar-brand" href="#">{{ carrier_lane._logger.name }} [{{ carrier_lane.route_node_lane.type }}] Max({{ carrier_lane.route_node_lane.max_carrier }})</a>
-                  <!--<ul class="navbar-nav mr-auto">-->
-                  <!--    <li class="nav-item">-->
-                  <!--      <a class="nav-link disabled" href="#" id=>Busy</a>-->
-                  <!--    </li>-->
-                      
-                  <!--    <li class="nav-item">-->
-                  <!--      <a class="nav-link disabled warn" href="#" id=>Warning</a>-->
-                  <!--    </li>-->
-                  <!--</ul>-->
-                </nav>
+        <div class="container-fluid">
+            {% for carrier_lane in machine.route_lanes%}
+                <script>
+                    $(document).ready(function(){
+                        setInterval(update_carrier_lane_queue, 10000);
+                        function update_carrier_lane_queue(){ 
+                            fetch('/carrier_queue/{{ carrier_lane.route_node_lane.sequence }}')
+                                .then(response => response.text())
+                                .then(data => {
+                                    document.getElementById("carrier_lane_queue_{{ carrier_lane.route_node_lane.sequence}}").innerHTML = data;
+                                    
+                                    })
+                                .catch((error) => {
+                                    console.error('Error:', error);
+                                    });
+                              }
+                        update_carrier_lane_queue();
+                    });
+                </script>
+                
+                <div class="row">
+                    <nav class="navbar navbar-expand-lg navbar-light bg-light col-md-12">
+                      <a class="navbar-brand" href="#">{{ carrier_lane._logger.name }} [{{ carrier_lane.route_node_lane.type }}] Max({{ carrier_lane.route_node_lane.max_carrier }})</a>
+                      <!--<ul class="navbar-nav mr-auto">-->
+                      <!--    <li class="nav-item">-->
+                      <!--      <a class="nav-link disabled" href="#" id=>Busy</a>-->
+                      <!--    </li>-->
+                          
+                      <!--    <li class="nav-item">-->
+                      <!--      <a class="nav-link disabled warn" href="#" id=>Warning</a>-->
+                      <!--    </li>-->
+                      <!--</ul>-->
+                    </nav>
+                </div>
+                <div class="row">
+                    <div class="col-md-2">BarCode</div>
+                    <div class="col-md-5">Traveler</div>
+                    <div class="col-md-1">Status</div>
+                    <div class="col-md-4">Destination</div>
+                </div>
+                <div id="carrier_lane_queue_{{ carrier_lane.route_node_lane.sequence}}"></div>
+               
+            {% endfor %}
+        </div>
+    {% endif %}
+    
+    
+    {% if not machine.route_node_id %}
+        {% if workorder_id.workcenter_id.is_pycode %}
+            <div class="container-fluid mb-3">
+                <button type="submit" class="btn btn-info float-right">RUN OPERATION</button>
             </div>
-            <div class="row">
-                <div class="col-md-2">BarCode</div>
-                <div class="col-md-5">Traveler</div>
-                <div class="col-md-1">Status</div>
-                <div class="col-md-4">Destination</div>
-            </div>
-            <div id="carrier_lane_queue_{{ carrier_lane.route_node_lane.sequence}}"></div>
-           
-        {% endfor %}
-    </div>
+        
+        {% endif %}
+        {{ workorder_id.worksheet_content|safe}}
+    {% endif %}
     
      
 {% endblock %}
