@@ -35,7 +35,7 @@ class MRP_Automation(machine.Machine, automation_web.Automation_Webservice):
         self.indicator_warn_thread = threading.Thread(target=self.indicator_warn_loop, daemon=True)
         self.indicator_warn_thread.start()
         
-        if self.config['webservice']['enable'] == 'True':
+        if self.config['webservice']['enable'] == '1':
             self.start_webservice()
             
         _logger.info("Machine INIT Compleete.")
@@ -66,7 +66,7 @@ class MRP_Automation(machine.Machine, automation_web.Automation_Webservice):
             try:
                 #festch the route node assigned to this equipment from the database
                 route_node_id = self.api.env['product.carrier.route.node'].search(search_domain, limit=1)[0]
-
+                
                 if not self.route_node_id:
                     #this is the first pass, set the route node up
                     self.update_route_node(route_node_id)
