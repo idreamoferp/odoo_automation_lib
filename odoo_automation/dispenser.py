@@ -77,6 +77,7 @@ class Dispenser(machine.Machine):
         return True
     
     def _dispense(self, quantity):
+        self._logger.info("Dispensing %s %s(s) of material, in %s seconds" % (quantity, self.config['units'], quantity / float(self.config['units_sec']) ) )
         start = self._start_dispense()
         
         time.sleep(quantity / float(self.config['units_sec']))
@@ -104,7 +105,8 @@ class Dispenser(machine.Machine):
         pass
     
     def wait_for_dispense(self):
-        self.dispense_thread.join()
+        if self.dispense_thread.is_alive():
+            self.dispense_thread.join()
         pass
     
     def quit(self):

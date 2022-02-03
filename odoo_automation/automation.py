@@ -1,5 +1,5 @@
 from . import machine, automation_web
-import logging, odoorpc, threading, time
+import logging, odoorpc, threading, time, json
 
 #setup logger
 _logger = logging.getLogger("Automation")
@@ -59,7 +59,7 @@ class MRP_Automation(machine.Machine, automation_web.Automation_Webservice):
         
     #odoo carrer route methods
     def update_route_node_loop(self):
-        time.sleep(5)
+        
         search_domain = [('equipment_id',"=", self.equipment_id.id)]
 
         while True:
@@ -83,7 +83,7 @@ class MRP_Automation(machine.Machine, automation_web.Automation_Webservice):
 
     def update_route_node(self, route_node_id):
         #the node has changed, wipe out cache
-        self.carrier_history_cache ={}
+        self.carrier_history_cache = {}
         self.route_destination_cashe = {}
 
         #set the machines Route Node
@@ -93,7 +93,10 @@ class MRP_Automation(machine.Machine, automation_web.Automation_Webservice):
         #lanes = self.route_node_id.lane_ids
         
         len_lanes = len(self.route_node_id.lane_ids)
-        if len_lanes != len(self.route_lanes):
+        
+        while len_lanes != len(self.route_lanes):
+            _logger.error("Lane count mismatch %s / %s" % (len_lanes, len(self.route_lanes)))
+            time.sleep(5)
             pass
         
         for i in range(len(self.route_lanes)):
@@ -418,11 +421,13 @@ class MRP_Carrier_Lane(object):
         
         #verivy this carrier need to be worked on by this machine, or kick it down the road.
         if not self.currernt_carrier.carrier_history_id.workorder_id:
+            self._logger.info("Carrier %s not for this machine" % (self.currernt_carrier.carrier_history_id.name))
             self.process_egress()
             return False
             
         wc_ids = [int(i) for i in self.mrp_automation_machine.config['mrp']['workcenter_ids'].split(",")]  #self.mrp_automation_machine.equipment_id.workcenter_ids
         wc_id = self.currernt_carrier.carrier_history_id.workorder_id.workcenter_id.id
+        
         if wc_id not in wc_ids: #self.mrp_automation_machine.workcenter_ids:
             self._logger.info("Machine is not in the workcenter required for this carrier history")
             self.process_egress()
@@ -476,10 +481,10 @@ class Carrier(object):
         self.ch.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
         self.logger.addHandler(self.ch)
         
-        
+        self.data_log = json.loads(self.carrier_history_id.data_log)
         self.exec_globals = {"self": self}
         self.exec_locals = {}
-        self.logger.info("Create Carier")
+        self.logger.debug("Create Carier")
         pass
 
     @property
@@ -506,6 +511,9 @@ class Carrier(object):
         
         self.logger.removeHandler(self.ch)
         pass
+    
+    def save_data_log(self):
+        self.carrier_history_id.data_log = json.dumps(self.data_log)
 
 from logging import StreamHandler
 
